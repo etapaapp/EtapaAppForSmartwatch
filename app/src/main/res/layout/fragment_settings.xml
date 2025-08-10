@@ -9,76 +9,139 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:padding="16dp">
+        android:fillViewport="true">
 
+        <!-- Lista de Opções de Configuração -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
             android:orientation="vertical"
-            android:paddingTop="20dp"
-            android:paddingBottom="20dp">
+            android:padding="8dp">
 
-            <Button
-                android:id="@+id/btn_check_update"
-                style="@style/WearButton"
+            <!-- Verificar Atualizações -->
+            <LinearLayout
+                android:id="@+id/option_check_update"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/wear_button_background"
-                android:elevation="2dp"
-                android:fontFamily="sans-serif-medium"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
                 android:gravity="center"
-                android:text="Verificar atualizações"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
 
-            <Button
-                android:id="@+id/btn_clear_data"
-                style="@style/WearButton"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/wear_button_background"
-                android:elevation="2dp"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:text="Limpar dados"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_update"
+                    android:contentDescription="Verificar Atualizações"
+                    android:layout_marginBottom="8dp"
+                    app:tint="?attr/colorOnSurface" />
 
-            <Button
-                android:id="@+id/btn_clear_password"
-                style="@style/WearButton"
-                android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/wear_button_background"
-                android:elevation="2dp"
-                android:fontFamily="sans-serif-medium"
-                android:gravity="center"
-                android:text="Limpar credenciais"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Verificar Atualizações"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+            </LinearLayout>
 
-            <Button
-                android:id="@+id/btn_github"
-                style="@style/WearButton"
+            <!-- Limpar Dados -->
+            <LinearLayout
+                android:id="@+id/option_clear_data"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:background="@drawable/wear_button_background"
-                android:elevation="2dp"
-                android:fontFamily="sans-serif-medium"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
                 android:gravity="center"
-                android:text="GitHub"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_delete_sweep"
+                    android:contentDescription="Limpar Dados"
+                    android:layout_marginBottom="8dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Limpar Dados"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <!-- Limpar Credenciais -->
+            <LinearLayout
+                android:id="@+id/option_clear_password"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_security"
+                    android:contentDescription="Limpar Credenciais"
+                    android:layout_marginBottom="8dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Limpar Credenciais"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <!-- GitHub -->
+            <LinearLayout
+                android:id="@+id/option_github"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_github"
+                    android:contentDescription="GitHub"
+                    android:layout_marginBottom="8dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="GitHub"
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

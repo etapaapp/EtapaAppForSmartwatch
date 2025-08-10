@@ -6,163 +6,78 @@
     android:background="@color/fundocartao"
     android:fitsSystemWindows="true">
 
-    <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-            <LinearLayout
-                android:id="@+id/profile_section"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="20dp"
-                android:background="@color/fundocartao"
-                android:gravity="center_vertical">
-
-                <!-- Foto de Perfil -->
-                <com.google.android.material.imageview.ShapeableImageView
-                    android:id="@+id/iv_profile_photo"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
-                    android:src="@drawable/ic_person"
-                    android:contentDescription="Foto de perfil"
-                    android:layout_marginEnd="16dp"
-                    app:shapeAppearanceOverlay="@style/CircleImageView"
-                    android:background="@color/white"
-                    app:strokeColor="?attr/colorOutline"
-                    app:strokeWidth="1dp" />
-
-                <!-- Informações do Usuário -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <!-- Nome do Aluno -->
-                    <TextView
-                        android:id="@+id/tv_student_name"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Faça login para exibir os dados"
-                        android:textAppearance="?attr/textAppearanceHeadline6"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="4dp" />
-
-                    <!-- Matrícula -->
-                    <TextView
-                        android:id="@+id/tv_student_registration"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textAppearance="?attr/textAppearanceBody2"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:layout_marginBottom="2dp" />
-
-                    <!-- Sala -->
-                    <TextView
-                        android:id="@+id/tv_student_class"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textAppearance="?attr/textAppearanceBody2"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-                    <TextView
-                        android:id="@+id/tv_student_number"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textAppearance="?attr/textAppearanceBody2"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
-                </LinearLayout>
-
-                <!-- Botão de Reload -->
-                <ImageView
-                    android:id="@+id/btn_reload_profile"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_info"
-                    android:contentDescription="Recarregar perfil"
-                    android:padding="4dp"
-                    android:clickable="true"
-                    android:focusable="true"
-                    app:tint="?attr/colorOnSurface" />
-            </LinearLayout>
-
-            <!-- Divisor -->
-            <View
-                android:id="@+id/divider"
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="?android:attr/listDivider"
-                android:layout_marginHorizontal="16dp"/>
-
-        <androidx.core.widget.NestedScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fillViewport="true"
-            app:layout_behavior="@string/appbar_scrolling_view_behavior">
-            <!-- Lista de Opções -->
+        <!-- Lista de Opções -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="16dp">
+            android:padding="8dp">
 
             <!-- Detalhes das Provas -->
             <LinearLayout
                 android:id="@+id/option_detalhes_provas"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
-                android:paddingHorizontal="12dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:src="@drawable/ic_detalhes_provas"
                     android:contentDescription="Detalhes das Provas"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="8dp"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Detalhes das Provas"
-                    android:textAppearance="?android:attr/textAppearanceListItem" />
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
             </LinearLayout>
 
+            <!-- EAD Online -->
             <LinearLayout
                 android:id="@+id/option_ead_online"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
-                android:paddingHorizontal="12dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:src="@drawable/ic_ead_online"
                     android:contentDescription="EADs"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="8dp"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="EADs"
-                    android:textAppearance="?android:attr/textAppearanceListItem" />
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
             </LinearLayout>
 
             <!-- Material Complementar -->
@@ -170,26 +85,30 @@
                 android:id="@+id/navigation_material"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
-                android:paddingHorizontal="12dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
+                android:layout_marginBottom="8dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:src="@drawable/ic_material"
                     android:contentDescription="Material Complementar"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="8dp"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Material Complementar"
-                    android:textAppearance="?android:attr/textAppearanceListItem" />
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
             </LinearLayout>
 
             <!-- Provas e Gabaritos -->
@@ -197,35 +116,32 @@
                 android:id="@+id/option_provas_gabaritos"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
-                android:paddingHorizontal="12dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="16dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:background="?android:attr/selectableItemBackground">
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:src="@drawable/ic_provas_gabaritos"
                     android:contentDescription="Provas e Gabaritos"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginBottom="8dp"
                     app:tint="?attr/colorOnSurface" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Provas e Gabaritos"
-                    android:textAppearance="?android:attr/textAppearanceListItem" />
+                    android:textAppearance="?android:attr/textAppearanceSmall"
+                    android:textAlignment="center"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
             </LinearLayout>
-    </LinearLayout>
-</androidx.core.widget.NestedScrollView>
 
-    </LinearLayout>
-    <!-- WebView oculto para carregamento de dados -->
-    <WebView
-        android:id="@+id/webView"
-        android:layout_width="1dp"
-        android:layout_height="1dp"
-        android:visibility="invisible"/>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

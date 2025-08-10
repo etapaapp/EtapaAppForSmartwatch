@@ -10,11 +10,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
-import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,60 +47,51 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupUI(view)
+
+        setupClickListeners(view)
+
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    (activity as? MainActivity)?.navigateToHome()
+                }
+            }
+        )
     }
 
-    private fun setupUI(view: View) {
-        val btnCheck = view.findViewById<Button>(R.id.btn_check_update)
-        val btnClear = view.findViewById<Button>(R.id.btn_clear_data)
-        val btnClearPassword = view.findViewById<Button>(R.id.btn_clear_password)
-        val btnGithub = view.findViewById<Button>(R.id.btn_github)
+    private fun setupClickListeners(view: View) {
+        view.findViewById<View>(R.id.option_check_update).setOnClickListener {
+            checkUpdate()
+        }
 
-        btnGithub.setOnClickListener { openUrl("https://github.com/etapaapp/") }
-        btnCheck.setOnClickListener { checkUpdate() }
-        btnClear.setOnClickListener {
+        view.findViewById<View>(R.id.option_clear_data).setOnClickListener {
             CookieManager.getInstance().removeAllCookies(null)
             CookieManager.getInstance().flush()
             clearAllCacheData()
-            Toast.makeText(requireContext(), "Dados apagados!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Dados limpos!", Toast.LENGTH_SHORT).show()
         }
-        btnClearPassword.setOnClickListener {
+
+        view.findViewById<View>(R.id.option_clear_password).setOnClickListener {
             clearAutoFill()
-            Toast.makeText(
-                requireContext(),
-                "Credenciais apagadas!",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(requireContext(), "Credenciais limpas!", Toast.LENGTH_SHORT).show()
+        }
+
+        view.findViewById<View>(R.id.option_github).setOnClickListener {
+            openUrl("https://github.com/etapaapp/")
         }
     }
 
     private fun clearAllCacheData() {
         listOf(
-            "horarios_prefs",
-            "calendario_prefs",
-            "materia_cache",
-            "notas_prefs",
-            "HomeFragmentCache",
-            "provas_prefs",
-            "redacao_detalhes_prefs",
-            "cache_html_redacao_detalhes",
-            "redacoes_prefs",
-            "cache_html_redacoes",
-            "material_prefs",
-            "cache_html_material",
-            "KEY_FILTRO",
-            "graficos_prefs",
-            "cache_html_graficos",
-            "boletim_prefs",
-            "cache_html_boletim",
-            "redacao_semanal_prefs",
-            "cache_html_redacao_semanal",
-            "detalhes_prefs",
-            "cache_html_horarios",
-            "cache_alert_message",
-            "cache_html_detalhes",
-            "profile_preferences",
-            "cache_html_provas"
+            "horarios_prefs", "calendario_prefs", "materia_cache", "notas_prefs",
+            "HomeFragmentCache", "provas_prefs", "redacao_detalhes_prefs",
+            "cache_html_redacao_detalhes", "redacoes_prefs", "cache_html_redacoes",
+            "material_prefs", "cache_html_material", "KEY_FILTRO", "graficos_prefs",
+            "cache_html_graficos", "boletim_prefs", "cache_html_boletim",
+            "redacao_semanal_prefs", "cache_html_redacao_semanal", "detalhes_prefs",
+            "cache_html_horarios", "cache_alert_message", "cache_html_detalhes",
+            "profile_preferences", "cache_html_provas"
         ).forEach { clearSharedPreferences(it) }
     }
 
@@ -108,12 +100,12 @@ class SettingsFragment : Fragment() {
     }
 
     private fun clearSharedPreferences(name: String) {
-        requireContext().getSharedPreferences(name, android.content.Context.MODE_PRIVATE).edit { clear() }
+        requireContext().getSharedPreferences(name, 0).edit { clear() }
     }
 
     private fun openUrl(url: String) {
         try {
-            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
         } catch (e: Exception) {
             Log.e(tag, "Erro ao abrir URL", e)
         }
@@ -122,13 +114,14 @@ class SettingsFragment : Fragment() {
     private fun checkUpdate() = coroutineScope.launch {
         try {
             val (json, responseCode) = withContext(Dispatchers.IO) {
-                val url = URL("https://api.github.com/repos/etapaapp/EtapaAppForSmartwatch/releases/latest")
+                val url = URL("https://api.github.com/repos/etapaapp/EtapaApp/releases/latest")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
                 connection.setRequestProperty("User-Agent", "EtapaApp-Android")
                 connection.connectTimeout = 10000
                 connection.connect()
+
                 try {
                     if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                         connection.inputStream.use { input ->
@@ -141,6 +134,7 @@ class SettingsFragment : Fragment() {
                     connection.disconnect()
                 }
             }
+
             if (json != null) {
                 processReleaseData(json)
             } else {
@@ -157,9 +151,10 @@ class SettingsFragment : Fragment() {
     }
 
     private fun processReleaseData(release: JSONObject) {
-        requireActivity().runOnUiThread {
+        activity?.runOnUiThread {
             val latest = release.getString("tag_name")
             val current = BuildConfig.VERSION_NAME
+
             if (UpdateChecker.isVersionGreater(latest, current)) {
                 val assets = release.getJSONArray("assets")
                 var apkUrl: String? = null
@@ -178,9 +173,9 @@ class SettingsFragment : Fragment() {
     }
 
     private fun promptForUpdate(url: String) {
-        requireActivity().runOnUiThread {
+        activity?.runOnUiThread {
             AlertDialog.Builder(requireContext())
-                .setTitle("Atualização")
+                .setTitle("Atualização Disponível")
                 .setMessage("Baixar versão mais recente?")
                 .setPositiveButton("Sim") { _, _ -> startManualDownload(url) }
                 .setNegativeButton("Não", null)
@@ -194,7 +189,7 @@ class SettingsFragment : Fragment() {
             try {
                 val apkFile = withContext(Dispatchers.IO) { downloadApk(apkUrl) }
                 progressDialog.dismiss()
-                apkFile?.let(::showInstallDialog) ?: showError("Falha ao baixar.")
+                apkFile?.let(::showInstallDialog) ?: showError("Falha no download.")
             } catch (e: Exception) {
                 progressDialog.dismiss()
                 Log.e(tag, "Erro no download", e)
@@ -217,11 +212,13 @@ class SettingsFragment : Fragment() {
         try {
             val connection = URL(apkUrl).openConnection() as HttpURLConnection
             connection.connect()
+
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val outputDir = File(downloadsDir, "EtapaAppForSmartwatch").apply {
+            val outputDir = File(downloadsDir, "EtapaApp").apply {
                 if (exists()) deleteRecursively()
                 mkdirs()
             }
+
             val outputFile = File(outputDir, "app_release.apk")
             connection.inputStream.use { input ->
                 FileOutputStream(outputFile).use { output ->
@@ -229,6 +226,7 @@ class SettingsFragment : Fragment() {
                     var bytesRead: Int
                     var total: Long = 0
                     val fileLength = connection.contentLength.toLong()
+
                     while (input.read(buffer).also { bytesRead = it } != -1) {
                         output.write(buffer, 0, bytesRead)
                         total += bytesRead
@@ -249,31 +247,34 @@ class SettingsFragment : Fragment() {
     }
 
     private fun showInstallDialog(apkFile: File) {
-        requireActivity().runOnUiThread {
+        activity?.runOnUiThread {
             try {
                 if (!apkFile.exists()) {
                     showError("APK não encontrado")
                     return@runOnUiThread
                 }
+
                 val apkUri = FileProvider.getUriForFile(
                     requireContext(),
                     "${BuildConfig.APPLICATION_ID}.provider",
                     apkFile
                 )
+
                 val installIntent = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(apkUri, "application/vnd.android.package-archive")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
+
                 if (installIntent.resolveActivity(requireContext().packageManager) != null) {
                     AlertDialog.Builder(requireContext())
-                        .setTitle("Download OK")
+                        .setTitle("Download concluído")
                         .setMessage("Instalar agora?")
                         .setPositiveButton("Instalar") { _, _ -> startActivity(installIntent) }
                         .setNegativeButton("Cancelar", null)
                         .show()
                 } else {
-                    showError("Instalador não encontrado")
+                    showError("Não foi possível instalar")
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Erro na instalação", e)
@@ -283,16 +284,16 @@ class SettingsFragment : Fragment() {
     }
 
     private fun showMessage() {
-        requireActivity().runOnUiThread {
+        activity?.runOnUiThread {
             AlertDialog.Builder(requireContext())
-                .setMessage("Já está atualizado")
+                .setMessage("Versão mais recente instalada")
                 .setPositiveButton("OK", null)
                 .show()
         }
     }
 
     private fun showError(msg: String) {
-        requireActivity().runOnUiThread {
+        activity?.runOnUiThread {
             AlertDialog.Builder(requireContext())
                 .setTitle("Erro")
                 .setMessage(msg)
@@ -301,8 +302,8 @@ class SettingsFragment : Fragment() {
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
+    override fun onDestroy() {
+        super.onDestroy()
         coroutineScope.cancel()
         progressBar = null
     }
