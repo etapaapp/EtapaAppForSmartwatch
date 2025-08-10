@@ -114,7 +114,7 @@ class SettingsFragment : Fragment() {
     private fun checkUpdate() = coroutineScope.launch {
         try {
             val (json, responseCode) = withContext(Dispatchers.IO) {
-                val url = URL("https://api.github.com/repos/etapaapp/EtapaApp/releases/latest")
+                val url = URL("https://api.github.com/repos/etapaapp/EtapaAppforSmartwatch/releases/latest")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
@@ -165,7 +165,7 @@ class SettingsFragment : Fragment() {
                         break
                     }
                 }
-                apkUrl?.let { promptForUpdate(it) } ?: showError("APK não encontrado.")
+                apkUrl?.let { promptForUpdate(it) } ?: showError("Arquivo APK não encontrado no release.")
             } else {
                 showMessage()
             }
