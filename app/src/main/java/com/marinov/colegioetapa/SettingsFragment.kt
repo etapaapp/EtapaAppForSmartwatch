@@ -176,7 +176,7 @@ class SettingsFragment : Fragment() {
         activity?.runOnUiThread {
             AlertDialog.Builder(requireContext())
                 .setTitle("Atualização Disponível")
-                .setMessage("Baixar versão mais recente?")
+                .setMessage("Deseja baixar e instalar a versão mais recente?")
                 .setPositiveButton("Sim") { _, _ -> startManualDownload(url) }
                 .setNegativeButton("Não", null)
                 .show()
@@ -269,7 +269,7 @@ class SettingsFragment : Fragment() {
                 if (installIntent.resolveActivity(requireContext().packageManager) != null) {
                     AlertDialog.Builder(requireContext())
                         .setTitle("Download concluído")
-                        .setMessage("Instalar agora?")
+                        .setMessage("Deseja instalar a atualização agora?")
                         .setPositiveButton("Instalar") { _, _ -> startActivity(installIntent) }
                         .setNegativeButton("Cancelar", null)
                         .show()
@@ -286,7 +286,7 @@ class SettingsFragment : Fragment() {
     private fun showMessage() {
         activity?.runOnUiThread {
             AlertDialog.Builder(requireContext())
-                .setMessage("Versão mais recente instalada")
+                .setMessage("Você já está na versão mais recente")
                 .setPositiveButton("OK", null)
                 .show()
         }
