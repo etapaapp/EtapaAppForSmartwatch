@@ -1,29 +1,33 @@
 package com.marinov.colegioetapa
 
+import android.annotation.SuppressLint
+import android.app.Dialog
 import android.content.Context
+import android.content.DialogInterface
+import android.content.res.Configuration
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.os.*
 import android.util.Log
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.CookieManager
-import android.widget.LinearLayout
+import android.webkit.*
+import android.widget.FrameLayout
+import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.LinearLayout
 import androidx.core.content.edit
+import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import java.io.IOException
@@ -52,7 +56,7 @@ class HomeFragment : Fragment() {
     data class Nota(val codigo: String, val conjunto: Int, val valor: String)
     data class NotaRecente(val codigo: String, val conjunto: String, val nota: String, val data: Calendar)
 
-    private companion object {
+    companion object {
         const val PREFS_NAME = "HomeFragmentCache"
         const val KEY_RECENT_GRADES = "recent_grades"
         const val KEY_CACHE_TIMESTAMP = "cache_timestamp"
@@ -63,13 +67,40 @@ class HomeFragment : Fragment() {
         const val MAX_RECENT_GRADES = 3
         const val MESES = 12
         const val TAG = "HomeFragment"
+        const val AUTOFILL_PREFS = "autofill_prefs"
+
+        @JvmStatic
+        fun fetchPageDataStatic(url: String): Document? {
+            return try {
+                val cookieManager = CookieManager.getInstance()
+                val cookies = cookieManager.getCookie(url)
+                Jsoup.connect(url)
+                    .header("Cookie", cookies ?: "")
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/536.36")
+                    .timeout(20000)
+                    .get()
+            } catch (e: IOException) {
+                Log.w(TAG, "fetchPageDataStatic erro: ${e.message}")
+                null
+            }
+        }
+
+        @JvmStatic
+        fun isValidSessionStatic(doc: Document?): Boolean {
+            if (doc == null) return false
+            val homeCarousel = doc.getElementById("home_banners_carousel")
+            return homeCarousel != null
+        }
+
+        @JvmStatic
+        fun isSystemDarkModeStatic(ctx: Context): Boolean {
+            return (ctx.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        }
     }
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
-        if (context !is WebViewFragment.LoginSuccessListener) {
-            throw RuntimeException("$context deve implementar LoginSuccessListener")
-        }
+        Log.d(TAG, "HomeFragment attached")
     }
 
     override fun onCreateView(
@@ -148,15 +179,15 @@ class HomeFragment : Fragment() {
         lifecycleScope.launch {
             try {
                 Log.d(TAG, "Iniciando busca de dados...")
-                val homeDoc = async(Dispatchers.IO) { fetchPageData(HOME_URL) }.await()
+                val homeDoc = withContext(Dispatchers.IO) { fetchPageDataStatic(HOME_URL) }
                 if (isFragmentDestroyed) return@launch
 
                 Log.d(TAG, "Verificando se a sessão é válida...")
-                if (isValidSession(homeDoc)) {
+                if (isValidSessionStatic(homeDoc)) {
                     Log.d(TAG, "Sessão válida - buscando dados completos")
-                    val gradesDoc = async(Dispatchers.IO) { fetchPageData(NOTAS_URL) }
+                    val gradesDoc = async(Dispatchers.IO) { fetchPageDataStatic(NOTAS_URL) }
                     val calendarDocsDeferred = (1..MESES).map { mes ->
-                        async(Dispatchers.IO) { fetchPageData("$CALENDARIO_URL_BASE?mes%5B%5D=$mes") }
+                        async(Dispatchers.IO) { fetchPageDataStatic("$CALENDARIO_URL_BASE?mes%5B%5D=$mes") }
                     }
 
                     val calendarDocs = try { awaitAll(*calendarDocsDeferred.toTypedArray()) }
@@ -176,7 +207,7 @@ class HomeFragment : Fragment() {
 
                     isDataLoaded = true
                 } else {
-                    Log.d(TAG, "Sessão inválida - redirecionando para login")
+                    Log.d(TAG, "Sessão inválida - abrindo popup de login")
                     withContext(Dispatchers.Main) {
                         handleInvalidSession()
                     }
@@ -200,23 +231,7 @@ class HomeFragment : Fragment() {
     }
 
     @Throws(IOException::class)
-    private fun fetchPageData(url: String): Document? {
-        return try {
-            val cookieManager = CookieManager.getInstance()
-            val cookies = cookieManager.getCookie(url)
-            Log.d(TAG, "Fazendo requisição para: $url")
-            Log.d(TAG, "Cookies: ${cookies?.take(100) ?: "nenhum"}")
-
-            Jsoup.connect(url)
-                .header("Cookie", cookies ?: "")
-                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/536.36")
-                .timeout(20000)
-                .get()
-        } catch (e: IOException) {
-            Log.e(TAG, "Erro ao buscar dados de $url: ${e.message}")
-            null
-        }
-    }
+    private fun fetchPageData(url: String): Document? = fetchPageDataStatic(url)
 
     private fun parseAllCalendarData(docs: List<Document?>): List<ProvaCalendario> {
         val allExams = mutableListOf<ProvaCalendario>()
@@ -338,7 +353,7 @@ class HomeFragment : Fragment() {
                 .inflate(R.layout.item_recent_grade_watch, recentGradesContainer, false)
 
             gradeView.findViewById<TextView>(R.id.tv_codigo).text = grade.codigo
-            gradeView.findViewById<TextView>(R.id.tv_conjunto).text = "Conj. ${grade.conjunto}"
+            gradeView.findViewById<TextView>(R.id.tv_conjunto).text = "Conjunto ${grade.conjunto}"
             gradeView.findViewById<TextView>(R.id.tv_nota).text = grade.nota
 
             recentGradesContainer?.addView(gradeView)
@@ -352,23 +367,7 @@ class HomeFragment : Fragment() {
         checkInternetAndLoadData()
     }
 
-    private fun isValidSession(doc: Document?): Boolean {
-        if (doc == null) {
-            Log.d(TAG, "Documento nulo - sessão inválida")
-            return false
-        }
-
-        // Verificar se existe o elemento característico da página home logada
-        val homeCarousel = doc.getElementById("home_banners_carousel")
-        val isValid = homeCarousel != null
-
-        Log.d(TAG, "Verificação de sessão: ${if (isValid) "válida" else "inválida"}")
-        if (!isValid) {
-            Log.d(TAG, "Elementos encontrados: ${doc.select("body").first()?.tagName() ?: "nenhum"}")
-        }
-
-        return isValid
-    }
+    private fun isValidSession(doc: Document?): Boolean = isValidSessionStatic(doc)
 
     private fun handleInvalidSession() {
         if (isFragmentDestroyed || shouldBlockNavigation) {
@@ -376,10 +375,10 @@ class HomeFragment : Fragment() {
             return
         }
 
-        Log.d(TAG, "Limpando cache e redirecionando para login")
+        Log.d(TAG, "Limpando cache e abrindo login embutido")
         clearCache()
         isDataLoaded = false
-        navigateToWebView(LOGIN_URL)
+        showLoginPopup()
     }
 
     private fun handleDataFetchError(e: Exception) {
@@ -433,6 +432,346 @@ class HomeFragment : Fragment() {
         }
         recentGradesCache = emptyList()
     }
+
+    private fun showLoginPopup() {
+        Log.d(TAG, "Solicitado showLoginPopup()")
+        if (childFragmentManager.findFragmentByTag("login_dialog") != null) {
+            Log.d(TAG, "Login dialog já está aberto")
+            return
+        }
+        val dlg = LoginDialogFragment()
+        dlg.isCancelable = false
+        try {
+            dlg.show(childFragmentManager, "login_dialog")
+            childFragmentManager.executePendingTransactions()
+            Log.d(TAG, "Login dialog exibido (childFragmentManager).")
+        } catch (e: Exception) {
+            Log.w(TAG, "Erro ao mostrar dialog via childFragmentManager: ${e.message}")
+        }
+    }
+
+    /**
+     * Nested (estática) DialogFragment — não é 'inner', portanto é recriável pelo framework.
+     */
+    class LoginDialogFragment : DialogFragment() {
+
+        private lateinit var webView: WebView
+        private lateinit var progress: ProgressBar
+        private var fallbackShown = false
+        private var pollJob: Job? = null
+        private val handler = Handler(Looper.getMainLooper())
+
+        override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
+            val dlg = super.onCreateDialog(savedInstanceState)
+            dlg.setCanceledOnTouchOutside(false)
+            isCancelable = false
+            dlg.setOnKeyListener(DialogInterface.OnKeyListener { _, keyCode, event ->
+                if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                    return@OnKeyListener true
+                }
+                false
+            })
+            return dlg
+        }
+
+        override fun onStart() {
+            super.onStart()
+            try {
+                dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            } catch (e: Exception) {
+                Log.w(HomeFragment.TAG, "Não foi possível ajustar layout do diálogo: ${e.message}")
+            }
+        }
+
+        override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+            val root = FrameLayout(requireContext())
+            root.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+
+            val sizePx = (48 * requireContext().resources.displayMetrics.density + 0.5f).toInt()
+            progress = ProgressBar(requireContext()).apply {
+                isIndeterminate = true
+                val lp = FrameLayout.LayoutParams(sizePx, sizePx)
+                lp.gravity = android.view.Gravity.CENTER
+                layoutParams = lp
+                visibility = View.VISIBLE
+            }
+
+            webView = WebView(requireContext())
+            webView.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+
+            root.addView(webView)
+            root.addView(progress)
+
+            initializeLoginWebView()
+
+            return root
+        }
+
+        @SuppressLint("SetJavaScriptEnabled")
+        private fun initializeLoginWebView() {
+            Log.d(HomeFragment.TAG, "Inicializando WebView do LoginDialogFragment")
+            CookieManager.getInstance().apply {
+                setAcceptCookie(true)
+                try { setAcceptThirdPartyCookies(webView, true) } catch (_: Throwable) {}
+                flush()
+            }
+
+            webView.apply {
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                visibility = View.INVISIBLE
+            }
+
+            with(webView.settings) {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                loadWithOverviewMode = true
+                useWideViewPort = true
+                builtInZoomControls = true
+                displayZoomControls = false
+                userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
+                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            }
+
+            val prefs = requireContext().getSharedPreferences(AUTOFILL_PREFS, Context.MODE_PRIVATE)
+            webView.addJavascriptInterface(JsInterface(prefs), "AndroidAutofill")
+            setupWebViewSecurity(webView)
+
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val url = request?.url?.toString() ?: return false
+                    Log.d(HomeFragment.TAG, "LoginDialog shouldOverrideUrlLoading -> $url")
+                    if (isHomeUrl(url)) {
+                        onLoginDetected()
+                        return true
+                    }
+                    return super.shouldOverrideUrlLoading(view, request)
+                }
+
+                override fun onPageFinished(view: WebView, url: String) {
+                    super.onPageFinished(view, url)
+                    Log.d(HomeFragment.TAG, "LoginDialog onPageFinished -> $url")
+
+                    if (!isAdded) {
+                        Log.w(HomeFragment.TAG, "onPageFinished ignorado porque fragment não está anexado")
+                        return
+                    }
+
+                    try {
+                        removeHeader(view)
+                        injectAutoFillScript(view)
+
+                        context?.let { ctx ->
+                            if (isSystemDarkModeStatic(ctx)) injectCssDarkMode(view)
+                        }
+
+                        if (isHomeUrl(url)) {
+                            onLoginDetected()
+                            return
+                        }
+
+                        showWebViewWithAnimation(view)
+                        progress.visibility = View.GONE
+                        fallbackShown = true
+                    } catch (e: Exception) {
+                        Log.w(HomeFragment.TAG, "Erro seguro em onPageFinished: ${e.message}")
+                    }
+                }
+
+                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    Log.w(HomeFragment.TAG, "LoginDialog onReceivedError: ${error?.description}")
+                }
+
+                private fun isHomeUrl(url: String?): Boolean {
+                    return url?.contains(HOME_URL) == true || url?.endsWith("/home") == true
+                }
+            }
+
+            webView.webChromeClient = WebChromeClient()
+            webView.loadUrl(LOGIN_URL)
+
+            handler.postDelayed({
+                if (!fallbackShown && isAdded && !isRemoving) {
+                    Log.d(HomeFragment.TAG, "Fallback: exibindo WebView pois onPageFinished não ocorreu rápido")
+                    try {
+                        webView.visibility = View.VISIBLE
+                        progress.visibility = View.GONE
+                    } catch (_: Exception) {}
+                }
+            }, 8_000L)
+
+            pollJob = lifecycleScope.launch {
+                val maxAttempts = 30
+                try {
+                    repeat(maxAttempts) { attempt ->
+                        if (!isAdded || isRemoving) {
+                            Log.d(HomeFragment.TAG, "Polling interrompido - dialog não mais adicionado")
+                            return@launch
+                        }
+                        Log.d(HomeFragment.TAG, "Polling sessão: tentativa ${attempt + 1}/$maxAttempts")
+                        val doc = withContext(Dispatchers.IO) { fetchPageDataStatic(HOME_URL) }
+                        if (isValidSessionStatic(doc)) {
+                            Log.d(HomeFragment.TAG, "Polling: sessão válida detectada pela requisição JSoup")
+                            withContext(Dispatchers.Main) {
+                                if (!isAdded) return@withContext
+                                try { webView.visibility = View.VISIBLE } catch (_: Exception) {}
+                                try { progress.visibility = View.GONE } catch (_: Exception) {}
+                                onLoginDetected()
+                            }
+                            return@launch
+                        }
+                        delay(1000L)
+                    }
+                    Log.d(HomeFragment.TAG, "Polling finalizado sem detectar sessão (timeout)")
+                    withContext(Dispatchers.Main) {
+                        if (!isAdded) return@withContext
+                        try { webView.visibility = View.VISIBLE } catch (_: Exception) {}
+                        try { progress.visibility = View.GONE } catch (_: Exception) {}
+                    }
+                } catch (e: CancellationException) {
+                    Log.d(HomeFragment.TAG, "Polling cancelado")
+                } catch (e: Exception) {
+                    Log.w(HomeFragment.TAG, "Erro no polling de sessão: ${e.message}")
+                }
+            }
+        }
+
+        override fun onDestroyView() {
+            super.onDestroyView()
+            try { pollJob?.cancel() } catch (_: Exception) {}
+            try { handler.removeCallbacksAndMessages(null) } catch (_: Exception) {}
+        }
+
+        override fun onDetach() {
+            super.onDetach()
+            try { pollJob?.cancel() } catch (_: Exception) {}
+            try { handler.removeCallbacksAndMessages(null) } catch (_: Exception) {}
+        }
+
+        private fun onLoginDetected() {
+            try { CookieManager.getInstance().flush() } catch (_: Exception) {}
+            Log.d(HomeFragment.TAG, "Login detectado dentro do dialog - fechando e notificando host")
+            val host = parentFragment as? HomeFragment
+            try { host?.onLoginSuccess() } catch (e: Exception) { Log.w(HomeFragment.TAG, "Erro ao notificar host: ${e.message}") }
+
+            if (isAdded && !isRemoving) {
+                try { pollJob?.cancel(); dismissAllowingStateLoss() } catch (_: Exception) {}
+            }
+        }
+
+        private fun setupWebViewSecurity(wv: WebView) {
+            wv.apply {
+                setOnLongClickListener { true }
+                isLongClickable = false
+                isHapticFeedbackEnabled = false
+            }
+        }
+
+        private fun showWebViewWithAnimation(view: WebView) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                try {
+                    view.alpha = 0f
+                    view.visibility = View.VISIBLE
+                    view.animate().alpha(1f).duration = 300
+                } catch (_: Exception) {}
+            }, 100)
+        }
+
+        private fun removeHeader(view: WebView) {
+            val js = """
+            document.documentElement.style.webkitTouchCallout='none';
+            document.documentElement.style.webkitUserSelect='none';
+            var nav=document.querySelector('#page-content-wrapper > nav'); if(nav) nav.remove();
+            var sidebar=document.querySelector('#sidebar-wrapper'); if(sidebar) sidebar.remove();
+            var responsavelTab=document.querySelector('#responsavel-tab'); if(responsavelTab) responsavelTab.remove();
+            var alunoTab=document.querySelector('#aluno-tab'); if(alunoTab) alunoTab.remove();
+            var login=document.querySelector('#login'); if(login) login.remove();
+            var cardElement=document.querySelector('body > div.row.mx-0.pt-4 > div > div.card.mt-4.border-radius-card.border-0.shadow'); if(cardElement) cardElement.remove();
+            var backButton = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-body.px-0.px-md-3 > div:nth-child(1) > div.card-header.bg-soft-blue.border-left-blue.text-blue.rounded > i.fas.fa-chevron-left.btn-outline-primary.py-1.px-2.rounded.mr-2');
+            if (backButton) backButton.remove();
+            var darkHeader = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-header.bg-dark.rounded.d-flex.align-items-center.justify-content-center');
+            if (darkHeader) darkHeader.remove();
+            var style=document.createElement('style');
+            style.type='text/css';
+            style.appendChild(document.createTextNode('::-webkit-scrollbar{display:none;}'));
+            document.head.appendChild(style);
+        """.trimIndent()
+            try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
+        }
+
+        private fun injectAutoFillScript(view: WebView) {
+            val script = """
+                (function() {
+                    const observerConfig = { childList: true, subtree: true };
+                    const userFields = ['#matricula'];
+                    const passFields = ['#senha'];
+                    
+                    function setupAutofill() {
+                        const userField = document.querySelector(userFields.join(', '));
+                        const passField = document.querySelector(passFields.join(', '));
+                        
+                        if (userField && passField) {
+                            if (userField.value === '') {
+                                userField.value = AndroidAutofill.getSavedUser();
+                            }
+                            if (passField.value === '') {
+                                passField.value = AndroidAutofill.getSavedPassword();
+                            }
+                            
+                            function handleInput() {
+                                AndroidAutofill.saveCredentials(userField.value, passField.value);
+                            }
+                            
+                            userField.addEventListener('input', handleInput);
+                            passField.addEventListener('input', handleInput);
+                            return true;
+                        }
+                        return false;
+                    }
+                    
+                    if (!setupAutofill()) {
+                        const observer = new MutationObserver((mutations) => {
+                            if (setupAutofill()) {
+                                observer.disconnect();
+                            }
+                        });
+                        observer.observe(document.body, observerConfig);
+                    }
+                    
+                    document.querySelectorAll('.nav-link').forEach(tab => {
+                        tab.addEventListener('click', () => {
+                            setTimeout(setupAutofill, 300);
+                        });
+                    });
+                })();
+            """.trimIndent()
+            try { view.evaluateJavascript(script, null) } catch (_: Exception) {}
+        }
+
+        private fun injectCssDarkMode(view: WebView) {
+            val css = "html{filter:invert(1) hue-rotate(180deg)!important;background:#121212!important;}" +
+                    "img,picture,video,iframe{filter:invert(1) hue-rotate(180deg)!important;}"
+            val js = "(function(){var s=document.createElement('style');s.innerHTML=\"$css\";document.head.appendChild(s);})();"
+            try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
+        }
+
+        private inner class JsInterface(private val prefs: android.content.SharedPreferences) {
+            @JavascriptInterface
+            fun saveCredentials(user: String, pass: String) = prefs.edit {
+                putString("user", user)
+                putString("password", pass)
+            }
+
+            @JavascriptInterface
+            fun getSavedUser(): String = prefs.getString("user", "") ?: ""
+
+            @JavascriptInterface
+            fun getSavedPassword(): String = prefs.getString("password", "") ?: ""
+        }
+    }
+    // fim LoginDialogFragment
 
     private fun navigateToWebView(url: String) {
         if (shouldBlockNavigation || isFragmentDestroyed) {

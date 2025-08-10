@@ -69,12 +69,12 @@ class SettingsFragment : Fragment() {
             CookieManager.getInstance().removeAllCookies(null)
             CookieManager.getInstance().flush()
             clearAllCacheData()
-            Toast.makeText(requireContext(), "Dados limpos!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Base de dados apagada com sucesso!", Toast.LENGTH_SHORT).show()
         }
 
         view.findViewById<View>(R.id.option_clear_password).setOnClickListener {
             clearAutoFill()
-            Toast.makeText(requireContext(), "Credenciais limpas!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Dados de preenchimento automático apagados com sucesso!", Toast.LENGTH_SHORT).show()
         }
 
         view.findViewById<View>(R.id.option_github).setOnClickListener {
@@ -84,14 +84,32 @@ class SettingsFragment : Fragment() {
 
     private fun clearAllCacheData() {
         listOf(
-            "horarios_prefs", "calendario_prefs", "materia_cache", "notas_prefs",
-            "HomeFragmentCache", "provas_prefs", "redacao_detalhes_prefs",
-            "cache_html_redacao_detalhes", "redacoes_prefs", "cache_html_redacoes",
-            "material_prefs", "cache_html_material", "KEY_FILTRO", "graficos_prefs",
-            "cache_html_graficos", "boletim_prefs", "cache_html_boletim",
-            "redacao_semanal_prefs", "cache_html_redacao_semanal", "detalhes_prefs",
-            "cache_html_horarios", "cache_alert_message", "cache_html_detalhes",
-            "profile_preferences", "cache_html_provas"
+            "horarios_prefs",
+            "calendario_prefs",
+            "materia_cache",
+            "notas_prefs",
+            "HomeFragmentCache",
+            "provas_prefs",
+            "redacao_detalhes_prefs",
+            "cache_html_redacao_detalhes",
+            "redacoes_prefs",
+            "cache_html_redacoes",
+            "material_prefs",
+            "cache_html_material",
+            "KEY_FILTRO",
+            "graficos_prefs",
+            "cache_html_graficos",
+            "boletim_prefs",
+            "cache_html_boletim",
+            "redacao_semanal_prefs",
+            "cache_html_redacao_semanal",
+            "cache_html_redacao_semanal",
+            "detalhes_prefs",
+            "cache_html_horarios",
+            "cache_alert_message",
+            "cache_html_detalhes",
+            "profile_preferences",
+            "cache_html_provas"
         ).forEach { clearSharedPreferences(it) }
     }
 
