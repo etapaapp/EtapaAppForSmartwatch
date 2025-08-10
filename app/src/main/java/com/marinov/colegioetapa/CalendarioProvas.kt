@@ -431,33 +431,41 @@ class CalendarioProvas : Fragment() {
             }
 
             holder.card.setOnClickListener {
-                if (parentFragment.isAdded) {
-                    val transaction = parentFragment.parentFragmentManager.beginTransaction()
-
-                    // Verificar se é tablet
-                    if (resources.getBoolean(R.bool.isTablet)) {
-                        // Substituir apenas o conteúdo do painel direito
-                        //val currentDetail = parentFragment.parentFragmentManager
-                            //.findFragmentById(R.id.detail_container)
-
-                        //if (currentDetail != null) {
-                            //transaction.remove(currentDetail)
-                        //}
-
-                        //transaction.replace(
-                           // R.id.detail_container,
-                            MateriadeProva.newInstance(item.link)
-                        //)
-                    } else {
-                        // Substituir o fragmento principal em dispositivos não tablets
-                        transaction.replace(
-                            R.id.nav_host_fragment,
-                            MateriadeProva.newInstance(item.link)
-                        )
-                        transaction.addToBackStack(null)
+                try {
+                    // Validar se o fragment ainda está válido e o link não está vazio
+                    if (!parentFragment.isAdded || item.link.isEmpty()) {
+                        Log.w("CalendarioProvas", "Fragment não está adicionado ou link vazio")
+                        return@setOnClickListener
                     }
 
-                    transaction.commit()
+                    // Para smartwatch, usar o container modal específico
+                    val activity = parentFragment.activity as? MainActivity
+                    if (activity != null) {
+                        // Criar nova instância do fragment de matéria
+                        val materiadeProvaFragment = MateriadeProva.newInstance(item.link)
+
+                        // Usar o container modal para fragments
+                        val transaction = activity.supportFragmentManager.beginTransaction()
+
+                        // Mostrar o container modal e adicionar o fragment
+                        val modalContainer = activity.findViewById<View>(R.id.view_pager_container)
+                        modalContainer?.visibility = View.VISIBLE
+
+                        transaction.replace(R.id.view_pager_container, materiadeProvaFragment)
+                        transaction.addToBackStack("materia_prova")
+
+                        // Committar de forma segura
+                        if (!activity.isFinishing && !activity.supportFragmentManager.isStateSaved) {
+                            transaction.commit()
+                        } else {
+                            transaction.commitAllowingStateLoss()
+                        }
+                    } else {
+                        Log.e("CalendarioProvas", "MainActivity não encontrada")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("CalendarioProvas", "Erro ao navegar para MateriadeProva", e)
                 }
             }
         }

@@ -16,6 +16,7 @@ import android.webkit.CookieManager
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.edit
 import androidx.core.text.HtmlCompat
 import androidx.fragment.app.Fragment
@@ -80,8 +81,43 @@ class MateriadeProva : Fragment() {
 
         carregarConteudo()
         configurarAcoesCompartilhamento()
+        configurarBotaoVoltar()
 
         return root
+    }
+
+    private fun configurarBotaoVoltar() {
+        // Configurar o comportamento do botão voltar para retornar ao calendário
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    voltarParaCalendario()
+                }
+            }
+        )
+    }
+
+    private fun voltarParaCalendario() {
+        try {
+            val activity = activity as? MainActivity
+            if (activity != null) {
+                // Esconder o container modal
+                val modalContainer = activity.findViewById<View>(R.id.view_pager_container)
+                modalContainer?.visibility = View.GONE
+
+                // Fazer pop do backstack para voltar ao calendário
+                if (activity.supportFragmentManager.backStackEntryCount > 0) {
+                    activity.supportFragmentManager.popBackStack()
+                } else {
+                    // Se não há backstack, apenas esconder o container
+                    Log.w("MateriadeProva", "Nenhum item no backstack")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MateriadeProva", "Erro ao voltar para calendário", e)
+            // Fallback: tentar navegar para home
+            (activity as? MainActivity)?.navigateToHome()
+        }
     }
 
     private fun configurarAcoesCompartilhamento() {
@@ -242,6 +278,18 @@ class MateriadeProva : Fragment() {
         txtTitulo.visibility = View.GONE
         txtConteudo.visibility = View.GONE
         barraCompartilhamento.visibility = View.GONE
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Esconder o container modal quando o fragment for destruído
+        try {
+            val activity = activity as? MainActivity
+            val modalContainer = activity?.findViewById<View>(R.id.view_pager_container)
+            modalContainer?.visibility = View.GONE
+        } catch (e: Exception) {
+            Log.e("MateriadeProva", "Erro ao esconder container modal", e)
+        }
     }
 
     private inner class CacheHelper(context: Context) {
