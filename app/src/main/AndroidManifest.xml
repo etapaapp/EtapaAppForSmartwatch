@@ -67,12 +67,6 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
-        <activity
-            android:name=".SettingsFragment"
-            android:exported="false"
-            android:theme="@style/Theme.ColégioEtapa"
-            android:launchMode="singleTop" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -82,27 +76,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"/>
         </provider>
-        <receiver
-            android:name=".ProvasWidget"
-            android:exported="true"
-            android:label="@string/widget_provas_name">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info"/>
-        </receiver>
-        <receiver
-            android:name=".ProvasWidgetDark"
-            android:exported="true"
-            android:label="@string/widget_provas_name_dark">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_info_dark"/>
-        </receiver>
     </application>
 </manifest>

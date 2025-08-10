@@ -5,8 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/fundocartao"
-    android:fitsSystemWindows="true"
-    android:paddingBottom="?attr/actionBarSize">
+    android:fitsSystemWindows="true">
     <!-- Tela Offline -->
     <LinearLayout
         android:id="@+id/layout_sem_internet"
