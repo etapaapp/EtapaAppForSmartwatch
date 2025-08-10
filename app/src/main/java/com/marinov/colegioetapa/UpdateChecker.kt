@@ -24,7 +24,7 @@ object UpdateChecker {
     fun checkForUpdate(context: Context, listener: UpdateListener) {
         Thread {
             runCatching {
-                val url = URL("https://api.github.com/repos/etapaapp/EtapaApp/releases/latest")
+                val url = URL("https://api.github.com/repos/etapaapp/EtapaAppForSmartwatch/releases/latest")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.apply {
                     requestMethod = "GET"

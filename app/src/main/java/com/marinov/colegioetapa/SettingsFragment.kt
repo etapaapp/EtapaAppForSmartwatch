@@ -122,7 +122,7 @@ class SettingsFragment : Fragment() {
     private fun checkUpdate() = coroutineScope.launch {
         try {
             val (json, responseCode) = withContext(Dispatchers.IO) {
-                val url = URL("https://api.github.com/repos/etapaapp/EtapaApp/releases/latest")
+                val url = URL("https://api.github.com/repos/etapaapp/EtapaAppForSmartwatch/releases/latest")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("Accept", "application/vnd.github.v3+json")
@@ -218,7 +218,7 @@ class SettingsFragment : Fragment() {
             val connection = URL(apkUrl).openConnection() as HttpURLConnection
             connection.connect()
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val outputDir = File(downloadsDir, "EtapaApp").apply {
+            val outputDir = File(downloadsDir, "EtapaAppForSmartwatch").apply {
                 if (exists()) deleteRecursively()
                 mkdirs()
             }
