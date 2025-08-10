@@ -26,7 +26,7 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
-class MainActivity : AppCompatActivity(), WebViewFragment.LoginSuccessListener {
+class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_NOTIFICATION_PERMISSION = 100
@@ -51,17 +51,6 @@ class MainActivity : AppCompatActivity(), WebViewFragment.LoginSuccessListener {
         solicitarPermissaoNotificacao()
         iniciarNotasWorker()
         iniciarUpdateWorker()
-    }
-
-    override fun onLoginSuccess() {
-        Log.d(TAG, "Login success callback - current item: ${viewPager.currentItem}")
-        if (viewPager.currentItem == 0) {
-            (pagerAdapter.getFragment(0) as? HomeFragment)?.onLoginSuccess()
-        }
-        // Fechar o WebView fragment se estiver aberto
-        if (supportFragmentManager.backStackEntryCount > 0) {
-            supportFragmentManager.popBackStack()
-        }
     }
 
     override fun onNewIntent(intent: Intent?) {
