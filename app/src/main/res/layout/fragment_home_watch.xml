@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:background="@color/fundocartao"
     android:fitsSystemWindows="true">
 
@@ -17,9 +17,9 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:layout_gravity="center"
             android:gravity="center_horizontal"
-            android:layout_gravity="center">
+            android:orientation="vertical">
 
             <com.google.android.material.progressindicator.CircularProgressIndicator
                 android:layout_width="48dp"
@@ -36,7 +36,7 @@
                 android:text="Carregando..."
                 android:textColor="?attr/colorOnSurfaceVariant"
                 android:textSize="14sp"
-                android:visibility="visible"/>
+                android:visibility="visible" />
         </LinearLayout>
     </FrameLayout>
 
@@ -45,8 +45,8 @@
         android:id="@+id/contentContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -59,10 +59,10 @@
                 android:id="@+id/top_loading_bar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@color/fundocartao"
+                android:gravity="center"
                 android:orientation="horizontal"
                 android:padding="8dp"
-                android:gravity="center"
-                android:background="@color/fundocartao"
                 android:visibility="gone"
                 tools:visibility="visible">
 
@@ -70,10 +70,10 @@
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:indeterminate="true"
-                    app:indicatorSize="18dp"
-                    app:trackCornerRadius="9dp"
                     app:indicatorColor="?attr/colorPrimary"
-                    app:trackColor="?attr/colorSurfaceVariant" />
+                    app:indicatorSize="18dp"
+                    app:trackColor="?attr/colorSurfaceVariant"
+                    app:trackCornerRadius="9dp" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -88,38 +88,45 @@
                 android:id="@+id/recentGradesContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
                 android:layout_marginTop="8dp"
+                android:orientation="vertical"
                 android:padding="8dp"
                 android:visibility="gone"
-                tools:visibility="visible"/>
+                tools:visibility="visible" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
     <!-- Tela Offline -->
     <LinearLayout
-        android:id="@+id/layout_sem_internet"
+        android:id="@+id/telaOffline"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/fundocartao"
-        android:gravity="center"
         android:orientation="vertical"
+        android:gravity="center"
         android:padding="32dp"
-        android:visibility="gone">
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <ImageView
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:src="@drawable/ic_no_connection"
+            app:tint="?attr/colorOnSurface" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="Sem internet"
             android:layout_marginTop="16dp"
-            android:text="Sem conexão"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"/>
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_tentar_novamente"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:text="TENTAR NOVAMENTE" />
+            android:text="TENTAR NOVAMENTE"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"/>
     </LinearLayout>
-</FrameLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
