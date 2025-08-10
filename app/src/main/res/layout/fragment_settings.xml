@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/fundocartao"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingTop="20dp"
+        android:paddingBottom="20dp">
+
+        <Button
+            android:id="@+id/btn_check_update"
+            style="@style/WearButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/wear_button_background"
+            android:text="Verificar atualizações"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:elevation="2dp" />
+
+        <Button
+            android:id="@+id/btn_clear_data"
+            style="@style/WearButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/wear_button_background"
+            android:text="Limpar dados"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:elevation="2dp" />
+
+        <Button
+            android:id="@+id/btn_clear_password"
+            style="@style/WearButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/wear_button_background"
+            android:text="Limpar credenciais"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:elevation="2dp" />
+
+        <Button
+            android:id="@+id/btn_github"
+            style="@style/WearButton"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/wear_button_background"
+            android:text="GitHub"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"
+            android:elevation="2dp" />
+
+    </LinearLayout>
+
+</ScrollView>

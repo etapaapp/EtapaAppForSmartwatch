@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@color/bootstrap_dark">
+
+    <!-- Título do mês -->
+    <TextView
+        android:id="@+id/txt_mes_ano"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:paddingBottom="4dp"
+        android:textColor="@color/white"/>
+
+    <!-- Cabeçalho dias da semana -->
+    <LinearLayout
+        android:id="@+id/header_container"
+        android:layout_width="match_parent"
+        android:layout_height="25dp"
+        android:orientation="horizontal"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"
+        android:weightSum="7">
+    </LinearLayout>
+
+    <!-- Semanas com altura flexível -->
+    <LinearLayout
+        android:id="@+id/week1"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"/>
+
+    <LinearLayout
+        android:id="@+id/week2"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"/>
+
+    <LinearLayout
+        android:id="@+id/week3"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"/>
+
+    <LinearLayout
+        android:id="@+id/week4"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"/>
+
+    <LinearLayout
+        android:id="@+id/week5"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"/>
+
+    <LinearLayout
+        android:id="@+id/week6"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="7"
+        android:divider="@drawable/divider_vertical_dark"
+        android:showDividers="middle"/>
+</LinearLayout>

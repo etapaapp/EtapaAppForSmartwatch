@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#0061C1</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorPrimaryContainer">#0061C1</color>
+    <color name="colorSurface">#FFFFFF</color>
+    <color name="colorOnSurface">#000000</color>
+    <color name="icon_tint">#000000</color>
+    <color name="bootstrap_dark">#000000</color>
+    <color name="bootstrap_stripe">#F8F9FA</color>
+    <color name="bootstrap_success">#28A745</color>
+    <color name="bootstrap_warning">#FFC107</color>
+    <color name="bootstrap_warning_dark">#FFC107</color>
+    <color name="bootstrap_danger">#DC3545</color>
+    <color name="bootstrap_danger_dark">#C82333</color>
+    <color name="header_bg">#ABABAB</color>
+    <color name="colorSurfaceVariant">@android:color/black</color>
+    <color name="md_theme_light_surfaceVariant">#F3EDF7</color>
+    <color name="card_stroke_color">?attr/colorPrimary</color>
+    <color name="status_bar_dark_fallback">#FF000000</color>
+    <color name="nav_bar_light">#E9EFF7</color>
+    <color name="nav_bar_dark">#E9EFF7</color>
+    <color name="fundocartao">#FFFFFF</color>
+    <color name="white">#FFFFFF</color>
+    <color name="badge_text_normal">#FDFDFD</color>
+    <color name="badge_text_recuperacao">#000000</color>
+    <color name="faixaA">#33CC00</color>
+    <color name="faixaB">#0000CC</color>
+    <color name="faixaCp">#006DCC</color>
+    <color name="faixaCm">#999900</color>
+    <color name="faixaD">#CC5200</color>
+    <color name="faixaE">#CC0000</color>
+    <color name="faixaDefault">#888888</color>
+    <color name="text_primary">#000000</color>
+    <color name="text_secondary">#808080</color>
+    <color name="widget_text_primary">#FF000000</color>
+</resources>

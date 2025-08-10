@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.ColégioEtapa" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- cores padrão -->
+        <item name="colorOnSurface">@color/colorOnSurface</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorOnPrimary">@color/colorOnPrimary</item>
+        <item name="colorPrimaryContainer">@color/colorPrimaryContainer</item>
+        <item name="colorSurface">@color/colorSurface</item>
+        <!-- Configurações das barras -->
+        <item name="android:statusBarColor">@color/fundocartao</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="colorSurfaceVariant">@android:color/black</item>
+        <item name="android:forceDarkAllowed">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Mantenha os estilos customizados -->
+        <item name="toolbarStyle">@style/Widget.ColégioEtapa.TopAppBar</item>
+        <item name="bottomNavigationStyle">@style/Widget.ColégioEtapa.BottomNavigationView
+        </item>
+    </style>
+</resources>

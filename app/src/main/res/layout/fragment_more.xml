@@ -1,0 +1,610 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/fundocartao"
+    android:fitsSystemWindows="true"
+    android:paddingBottom="?attr/actionBarSize">
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/profile_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="20dp"
+                android:background="@color/fundocartao"
+                android:gravity="center_vertical">
+
+                <!-- Foto de Perfil -->
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/iv_profile_photo"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@drawable/ic_person"
+                    android:contentDescription="Foto de perfil"
+                    android:layout_marginEnd="16dp"
+                    app:shapeAppearanceOverlay="@style/CircleImageView"
+                    android:background="@color/white"
+                    app:strokeColor="?attr/colorOutline"
+                    app:strokeWidth="1dp" />
+
+                <!-- Informações do Usuário -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <!-- Nome do Aluno -->
+                    <TextView
+                        android:id="@+id/tv_student_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Faça login para exibir os dados"
+                        android:textAppearance="?attr/textAppearanceHeadline6"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="4dp" />
+
+                    <!-- Matrícula -->
+                    <TextView
+                        android:id="@+id/tv_student_registration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textAppearance="?attr/textAppearanceBody2"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:layout_marginBottom="2dp" />
+
+                    <!-- Sala -->
+                    <TextView
+                        android:id="@+id/tv_student_class"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textAppearance="?attr/textAppearanceBody2"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+                    <TextView
+                        android:id="@+id/tv_student_number"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textAppearance="?attr/textAppearanceBody2"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+                </LinearLayout>
+
+                <!-- Botão de Reload -->
+                <ImageView
+                    android:id="@+id/btn_reload_profile"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_info"
+                    android:contentDescription="Recarregar perfil"
+                    android:padding="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:tint="?attr/colorOnSurface" />
+            </LinearLayout>
+
+            <!-- Divisor -->
+            <View
+                android:id="@+id/divider"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?android:attr/listDivider"
+                android:layout_marginHorizontal="16dp"/>
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior">
+            <!-- Lista de Opções -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp">
+
+            <!-- ACC (detalhes) -->
+            <LinearLayout
+                android:id="@+id/option_acc_detalhes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_acc_details"
+                    android:contentDescription="ACC (detalhes)"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ACC (detalhes)"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- ACC (inscrição) -->
+            <LinearLayout
+                android:id="@+id/option_acc_inscricao"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_acc_inscricao"
+                    android:contentDescription="ACC (inscrição)"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ACC (inscrição)"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Boletim Simulados -->
+            <LinearLayout
+                android:id="@+id/option_boletim_simulados"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_boletim_simulados"
+                    android:contentDescription="Boletim Simulados"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Boletim Simulados"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Cardápio -->
+            <LinearLayout
+                android:id="@+id/option_food"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_food"
+                    android:contentDescription="Cardápio"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Cardápio"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Detalhes das Provas -->
+            <LinearLayout
+                android:id="@+id/option_detalhes_provas"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_detalhes_provas"
+                    android:contentDescription="Detalhes das Provas"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Detalhes das Provas"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/option_ead_online"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_ead_online"
+                    android:contentDescription="EADs"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="EADs"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- EADs antigos -->
+            <LinearLayout
+                android:id="@+id/option_ead"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_ead"
+                    android:contentDescription="EADs antigos"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="EADs antigos"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Escreve Etapa (enviar redação) -->
+            <LinearLayout
+                android:id="@+id/option_escreve_enviar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_escreve_enviar"
+                    android:contentDescription="Escreve Etapa (enviar)"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Escreve Etapa (enviar redação)"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Escreve Etapa (ver redação) -->
+            <LinearLayout
+                android:id="@+id/option_escreve_ver"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_escreve_ver"
+                    android:contentDescription="Escreve Etapa (ver)"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Escreve Etapa (ver redação)"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Etapa Digital -->
+            <LinearLayout
+                android:id="@+id/option_digital"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_digital"
+                    android:contentDescription="Etapa Digital"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Etapa Digital"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Etapa Link -->
+            <LinearLayout
+                android:id="@+id/option_link"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_link"
+                    android:contentDescription="Etapa Link"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Etapa Link"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Material Complementar -->
+            <LinearLayout
+                android:id="@+id/navigation_material"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_material"
+                    android:contentDescription="Material Complementar"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Material Complementar"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Plantão de Dúvidas -->
+            <LinearLayout
+                android:id="@+id/option_plantao_duvidas"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_plantao_duvidas"
+                    android:contentDescription="Plantão de Dúvidas"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Plantão de Dúvidas"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Plantão de Dúvidas Online -->
+            <LinearLayout
+                android:id="@+id/option_plantao_duvidas_online"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_plantao_duvidas_online"
+                    android:contentDescription="Plantão de Dúvidas Online"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Plantão de Dúvidas Online"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Provas anteriores -->
+            <LinearLayout
+                android:id="@+id/navigation_provas"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_assignment_24"
+                    android:contentDescription="Provas e materiais dos anos anteriores"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Provas e materiais dos anos anteriores"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Provas e Gabaritos -->
+            <LinearLayout
+                android:id="@+id/option_provas_gabaritos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_provas_gabaritos"
+                    android:contentDescription="Provas e Gabaritos"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Provas e Gabaritos"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Redação semanal -->
+            <LinearLayout
+                android:id="@+id/option_redacao_semanal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_redacao_semanal"
+                    android:contentDescription="Redação semanal"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Redação semanal"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+
+            <!-- Relatório de Evolução -->
+            <LinearLayout
+                android:id="@+id/option_graficos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?android:attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_relatorio_evolucao"
+                    android:contentDescription="Relatório de Evolução"
+                    android:layout_marginEnd="16dp"
+                    app:tint="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Relatório de Evolução"
+                    android:textAppearance="?android:attr/textAppearanceListItem" />
+            </LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
+
+    </LinearLayout>
+    <!-- WebView oculto para carregamento de dados -->
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:visibility="invisible"/>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,0 +1,47 @@
+<resources>
+    <string-array name="meses_array">
+        <item>--</item>
+        <item>Janeiro</item>
+        <item>Fevereiro</item>
+        <item>Março</item>
+        <item>Abril</item>
+        <item>Maio</item>
+        <item>Junho</item>
+        <item>Julho</item>
+        <item>Agosto</item>
+        <item>Setembro</item>
+        <item>Outubro</item>
+        <item>Novembro</item>
+        <item>Dezembro</item>
+    </string-array>
+    <string-array name="conjuntos_array">
+        <item>--</item>
+        <item>Conjunto 1</item>
+        <item>Conjunto 2</item>
+        <item>Conjunto 3</item>
+        <item>Conjunto 4</item>
+    </string-array>
+
+    <string-array name="materias_array">
+        <item>--</item>
+        <item>Biologia</item>
+        <item>Computação</item>
+        <item>Ed. Artística</item>
+        <item>Física</item>
+        <item>Geografia</item>
+        <item>História</item>
+        <item>Inglês</item>
+        <item>Lab. Informática</item>
+        <item>Lab. Biologia</item>
+        <item>Link Tema</item>
+        <item>Matemática</item>
+        <item>Compl. Matemática</item>
+        <item>Líng. Port. / Lit.</item>
+        <item>Prova Geral</item>
+        <item>Prática Redacional</item>
+        <item>Química</item>
+        <item>Simulado</item>
+        <item>Temas Diversos</item>
+        <item>Tópicos Especiais</item>
+    </string-array>
+</resources>

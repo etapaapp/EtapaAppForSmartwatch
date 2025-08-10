@@ -1,0 +1,23 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_home"
+        android:icon="@drawable/ic_home_24"
+        android:title="Início" />
+    <item
+        android:id="@+id/option_calendario_provas"
+        android:icon="@drawable/ic_calendario_provas"
+        android:title="Provas" />
+    <item
+        android:id="@+id/navigation_notas"
+        android:icon="@drawable/ic_notes"
+        android:title="Notas" />
+    <item
+        android:id="@+id/option_horarios_aula"
+        android:icon="@drawable/ic_horarios_aula"
+        android:title="Aulas" />
+    <item
+        android:id="@+id/navigation_more"
+        android:icon="@drawable/ic_more_vert_24"
+        android:title="Mais"
+        android:checkable="true" />
+</menu>

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/fundocartao"
+    android:paddingBottom="?attr/actionBarSize"
+    android:fitsSystemWindows="true">
+
+    <!-- Título -->
+    <TextView
+        android:id="@+id/txt_titulo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+        android:textColor="?attr/colorPrimary"
+        android:visibility="gone"
+        app:layout_anchorGravity="top"/>
+
+    <LinearLayout
+        android:id="@+id/barra_compartilhamento"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="70dp"
+        android:orientation="horizontal"
+        android:layout_marginHorizontal="8dp"
+        android:visibility="gone"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <!-- Botões com ícones de 24dp -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_whatsapp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            app:icon="@drawable/ic_whatsapp"
+            app:iconSize="24dp"
+            app:iconTint="?attr/colorPrimary"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_wechat"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="2dp"
+            app:icon="@drawable/ic_wechat"
+            app:iconSize="24dp"
+            app:iconTint="?attr/colorPrimary"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_chatgpt"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="2dp"
+            app:icon="@drawable/ic_chatgpt"
+            app:iconSize="24dp"
+            app:iconTint="?attr/colorPrimary"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_deepseek"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="2dp"
+            app:icon="@drawable/ic_deepseek"
+            app:iconSize="24dp"
+            app:iconTint="?attr/colorPrimary"/>
+    </LinearLayout>
+
+    <!-- Conteúdo -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="120dp"
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="8dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+    <TextView
+        android:id="@+id/txt_conteudo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.25"
+        android:textColor="?attr/colorOnSurface"
+        android:paddingBottom="18dp" />
+</androidx.core.widget.NestedScrollView>
+
+    <!-- Erro -->
+    <TextView
+        android:id="@+id/txt_erro"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:padding="24dp"
+        android:textAppearance="?attr/textAppearanceBodyLarge"
+        android:visibility="gone"/>
+
+    <!-- Loading -->
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/progress_circular"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        app:indicatorColor="?attr/colorPrimary"/>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

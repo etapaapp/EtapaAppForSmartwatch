@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/filtro_todos"
+            android:title="Mostrar tudo"
+            android:checkable="true"/>
+        <item
+            android:id="@+id/filtro_provas"
+            android:title="Mostrar somente provas"
+            android:checkable="true"/>
+        <item
+            android:id="@+id/filtro_recuperacoes"
+            android:title="Mostrar somente recs"
+            android:checkable="true"/>
+    </group>
+</menu>
