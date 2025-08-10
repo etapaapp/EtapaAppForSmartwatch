@@ -139,7 +139,7 @@ class HomeFragment : Fragment() {
     private fun initializeViews(view: View) {
         loadingContainer = view.findViewById(R.id.loadingContainer)
         contentContainer = view.findViewById(R.id.contentContainer)
-        layoutSemInternet = view.findViewById(R.id.layout_sem_internet)
+        layoutSemInternet = view.findViewById(R.id.telaOffline)
         btnTentarNovamente = view.findViewById(R.id.btn_tentar_novamente)
         txtStuckHint = view.findViewById(R.id.txtStuckHint)
         topLoadingBar = view.findViewById(R.id.top_loading_bar)
@@ -771,32 +771,6 @@ class HomeFragment : Fragment() {
             fun getSavedPassword(): String = prefs.getString("password", "") ?: ""
         }
     }
-    // fim LoginDialogFragment
-
-    private fun navigateToWebView(url: String) {
-        if (shouldBlockNavigation || isFragmentDestroyed) {
-            Log.d(TAG, "Navegação bloqueada - shouldBlock: $shouldBlockNavigation, destroyed: $isFragmentDestroyed")
-            return
-        }
-
-        try {
-            Log.d(TAG, "Navegando para WebView com URL: $url")
-            val activity = activity as? MainActivity
-            if (activity == null) {
-                Log.e(TAG, "MainActivity não disponível")
-                return
-            }
-
-            val fragment = WebViewFragment().apply {
-                arguments = WebViewFragment.createArgs(url)
-            }
-            activity.openCustomFragment(fragment)
-            Log.d(TAG, "Fragment WebView aberto com sucesso")
-        } catch (e: Exception) {
-            Log.e(TAG, "Erro ao navegar para WebView", e)
-        }
-    }
-
     private fun showLoadingState() {
         if (isFragmentDestroyed) return
         loadingContainer?.visibility = View.VISIBLE
@@ -817,7 +791,6 @@ class HomeFragment : Fragment() {
         contentContainer?.visibility = View.GONE
         layoutSemInternet?.visibility = View.VISIBLE
     }
-
     private fun hasInternetConnection(): Boolean {
         val connectivityManager = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
         val network = connectivityManager.activeNetwork ?: return false

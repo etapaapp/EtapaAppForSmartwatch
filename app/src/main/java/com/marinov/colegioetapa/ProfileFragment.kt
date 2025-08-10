@@ -1,5 +1,4 @@
 package com.marinov.colegioetapa
-
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
@@ -26,9 +25,9 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.edit
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,7 +37,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
-
 class ProfileFragment : Fragment() {
     private lateinit var webView: WebView
     private lateinit var profileContainer: LinearLayout
@@ -49,7 +47,6 @@ class ProfileFragment : Fragment() {
     private val handler = Handler(Looper.getMainLooper())
     private val AUTH_CHECK_URL = "https://areaexclusiva.colegioetapa.com.br/provas/notas"
     private lateinit var sharedPreferences: SharedPreferences
-
     private companion object {
         private const val PROFILE_PREFS = "profile_preferences"
         private const val PROFILE_DATA_KEY = "profile_data"
@@ -57,7 +54,6 @@ class ProfileFragment : Fragment() {
         private const val PROFILE_HAS_DATA_KEY = "profile_has_data"
         private const val PROFILE_IMAGE_KEY = "profile_image_path"
     }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -65,25 +61,20 @@ class ProfileFragment : Fragment() {
     ): View? {
         return inflater.inflate(R.layout.fragment_profile, container, false)
     }
-
     @SuppressLint("SetJavaScriptEnabled")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         webView = view.findViewById(R.id.webView)
         profileContainer = view.findViewById(R.id.profileContainer)
         layoutSemInternet = view.findViewById(R.id.layout_sem_internet)
         btnTentarNovamente = view.findViewById(R.id.btn_tentar_novamente)
         profileCard = view.findViewById(R.id.profileCard)
         ivProfilePhoto = view.findViewById(R.id.iv_profile_photo)
-
         initializeSharedPreferences()
         setupWebView()
-
         btnTentarNovamente.setOnClickListener {
             navigateToHomeFragment()
         }
-
         // Adiciona callback para botão voltar
         requireActivity().onBackPressedDispatcher.addCallback(
             viewLifecycleOwner,
@@ -93,24 +84,35 @@ class ProfileFragment : Fragment() {
                 }
             }
         )
-
+        // Primeiro: carregar dados do cache (se existirem)
+        if (hasOfflineProfileData()) {
+            val savedData = getOfflineProfileData()
+            if (savedData != null) {
+                displayProfileData(savedData)
+                loadProfileImage() // Carrega a imagem do perfil do cache
+                profileCard.visibility = View.VISIBLE
+                layoutSemInternet.visibility = View.GONE
+            }
+        }
+        // Segundo: verificar internet e autenticação para atualizar os dados
         checkInternetAndAuthentication()
     }
     private fun initializeSharedPreferences() {
         sharedPreferences = requireContext().getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE)
     }
-
     private fun checkInternetAndAuthentication() {
         if (!hasInternetConnection()) {
-            loadOfflineProfileData()
+            // Se não tem internet, e não temos dados offline, mostra tela de erro
+            if (!hasOfflineProfileData()) {
+                showNoInternetUI()
+            }
             return
         }
-
+        // Tem internet, então tenta autenticar e buscar dados atualizados
         layoutSemInternet.visibility = View.GONE
         profileCard.visibility = View.GONE
         performAuthCheck()
     }
-
     private fun loadOfflineProfileData() {
         if (hasOfflineProfileData()) {
             val savedData = getOfflineProfileData()
@@ -118,16 +120,15 @@ class ProfileFragment : Fragment() {
                 displayProfileData(savedData)
                 loadProfileImage() // Carrega a imagem do perfil do cache e tenta atualizar se houver internet
                 profileCard.visibility = View.VISIBLE
+                layoutSemInternet.visibility = View.GONE
                 return
             }
         }
         showNoInternetUI()
     }
-
     private fun hasOfflineProfileData(): Boolean {
         return sharedPreferences.getBoolean(PROFILE_HAS_DATA_KEY, false)
     }
-
     private fun getOfflineProfileData(): JSONObject? {
         return try {
             val jsonString = sharedPreferences.getString(PROFILE_DATA_KEY, null)
@@ -141,7 +142,6 @@ class ProfileFragment : Fragment() {
             null
         }
     }
-
     private fun saveProfileDataOffline(profileData: JSONObject) {
         try {
             sharedPreferences.edit {
@@ -154,14 +154,12 @@ class ProfileFragment : Fragment() {
             Log.e("ProfileFragment", "Erro ao salvar dados offline", e)
         }
     }
-
     @SuppressLint("SetJavaScriptEnabled")
     private fun performAuthCheck() {
         val authWebView = WebView(requireContext()).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
         }
-
         authWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 view?.evaluateJavascript(
@@ -174,41 +172,44 @@ class ProfileFragment : Fragment() {
                     if (isAuthenticated) {
                         loadProfilePage()
                     } else {
-                        loadOfflineProfileData()
+                        // Não autenticado, mas temos dados offline? Mantém os dados offline.
+                        if (!hasOfflineProfileData()) {
+                            showNoInternetUI()
+                        }
                     }
                     authWebView.destroy()
                 }
             }
-
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
-                loadOfflineProfileData()
+                // Se falhar, mas temos dados offline, não faz nada (já estão sendo exibidos)
+                if (!hasOfflineProfileData()) {
+                    showNoInternetUI()
+                }
                 authWebView.destroy()
             }
-
             override fun onReceivedHttpError(
                 view: WebView?,
                 request: WebResourceRequest?,
                 errorResponse: WebResourceResponse?
             ) {
-                loadOfflineProfileData()
+                if (!hasOfflineProfileData()) {
+                    showNoInternetUI()
+                }
                 authWebView.destroy()
             }
         }
-
         authWebView.loadUrl(AUTH_CHECK_URL)
     }
-
     private fun showNoInternetUI() {
         handler.post {
             profileCard.visibility = View.GONE
             layoutSemInternet.visibility = View.VISIBLE
         }
     }
-
     private fun hasInternetConnection(): Boolean {
         val context = context ?: return false
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -216,14 +217,12 @@ class ProfileFragment : Fragment() {
         val capabilities = cm.getNetworkCapabilities(network) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
-
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         val webSettings = webView.settings
         webSettings.javaScriptEnabled = true
         webSettings.domStorageEnabled = true
         webSettings.javaScriptCanOpenWindowsAutomatically = true
-
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(
@@ -301,25 +300,27 @@ class ProfileFragment : Fragment() {
                     processExtractedData(result)
                 }
             }
-
             override fun onReceivedError(
                 view: WebView?,
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
-                loadOfflineProfileData()
+                // Já temos os dados offline? Não faz nada, pois já estão exibidos.
+                if (!hasOfflineProfileData()) {
+                    loadOfflineProfileData()
+                }
             }
-
             override fun onReceivedHttpError(
                 view: WebView?,
                 request: WebResourceRequest?,
                 errorResponse: WebResourceResponse?
             ) {
-                loadOfflineProfileData()
+                if (!hasOfflineProfileData()) {
+                    loadOfflineProfileData()
+                }
             }
         }
     }
-
     private fun processExtractedData(rawResult: String) {
         try {
             var jsonStr = rawResult
@@ -327,52 +328,56 @@ class ProfileFragment : Fragment() {
                 .replace("\\\"", "\"")
                 .replace("\\n", "")
                 .replace("\\t", "")
-
             if (jsonStr == "null" || jsonStr.isEmpty()) {
-                loadOfflineProfileData()
+                // Se não extraiu dados, mas temos cache, não faz nada (mantém cache)
+                if (!hasOfflineProfileData()) {
+                    loadOfflineProfileData()
+                }
                 return
             }
-
             if (!jsonStr.startsWith("{") || !jsonStr.endsWith("}")) {
                 jsonStr = "{$jsonStr}"
             }
-
             val data = JSONObject(jsonStr)
-
             if (data.has("error")) {
                 val errorMsg = data.getString("error")
                 Log.e("ProfileFragment", "Erro JavaScript: $errorMsg")
-                loadOfflineProfileData()
+                // Se tem cache, não faz nada. Senão, mostra tela de erro.
+                if (!hasOfflineProfileData()) {
+                    loadOfflineProfileData()
+                }
                 return
             }
-
             if (isValidProfileData(data)) {
                 saveProfileDataOffline(data)
+                // Atualiza a UI com os novos dados
                 displayProfileData(data)
                 loadProfileImage() // Carrega a imagem do perfil (primeiro do cache, depois tenta atualizar)
                 profileCard.visibility = View.VISIBLE
+                layoutSemInternet.visibility = View.GONE
             } else {
-                loadOfflineProfileData()
+                // Dados inválidos, mas temos cache? Mantém o cache.
+                if (!hasOfflineProfileData()) {
+                    loadOfflineProfileData()
+                }
             }
         } catch (e: Exception) {
             Log.e("ProfileFragment", "Erro no parsing: $rawResult", e)
-            loadOfflineProfileData()
+            if (!hasOfflineProfileData()) {
+                loadOfflineProfileData()
+            }
         }
     }
-
     private fun isValidProfileData(data: JSONObject): Boolean {
         val essentialFields = listOf("Aluno", "Matrícula", "Unidade")
         var validFields = 0
-
         essentialFields.forEach { field ->
             if (data.has(field) && !data.getString(field).isNullOrBlank()) {
                 validFields++
             }
         }
-
         return validFields >= 2
     }
-
     private fun loadProfilePage() {
         val url = "https://areaexclusiva.colegioetapa.com.br/profile"
         val cookieManager = CookieManager.getInstance()
@@ -380,15 +385,12 @@ class ProfileFragment : Fragment() {
         CookieManager.getInstance().flush()
         webView.loadUrl(url)
     }
-
     private fun displayProfileData(profileData: JSONObject) {
         profileContainer.removeAllViews()
-
         val fields = listOf(
             "Aluno", "Matrícula", "Unidade",
             "Período", "Sala", "Grau", "Série/Ano", "Nº chamada"
         )
-
         var displayedFields = 0
         fields.forEach { field ->
             if (profileData.has(field) && !profileData.getString(field).isNullOrBlank()) {
@@ -396,24 +398,19 @@ class ProfileFragment : Fragment() {
                 displayedFields++
             }
         }
-
         if (displayedFields == 0) {
             showError()
         }
     }
-
     @SuppressLint("SetTextI18n")
     private fun addProfileItem(label: String, value: String) {
         val itemView = layoutInflater.inflate(R.layout.item_profile, profileContainer, false)
         val labelView: TextView = itemView.findViewById(R.id.itemLabel)
         val valueView: TextView = itemView.findViewById(R.id.itemValue)
-
         labelView.text = "$label:"
         valueView.text = value
-
         profileContainer.addView(itemView)
     }
-
     private fun loadProfileImage() {
         // Tenta carregar a imagem salva localmente
         val savedImagePath = sharedPreferences.getString(PROFILE_IMAGE_KEY, null)
@@ -429,34 +426,33 @@ class ProfileFragment : Fragment() {
                 return
             }
         }
-
         // Se não houver imagem no cache, e tivermos internet, tenta buscar
         if (hasInternetConnection()) {
             fetchProfileImage()
         }
     }
-
     private fun fetchProfileImage() {
-        CoroutineScope(Dispatchers.IO).launch {
+        // Usar o lifecycleScope da view para garantir cancelamento
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
+                // Verifica se o fragment ainda está anexado
+                if (!isAdded) {
+                    return@launch
+                }
                 // Obtém os cookies do WebView
                 val cookieManager = CookieManager.getInstance()
                 val cookies = cookieManager.getCookie("https://areaexclusiva.colegioetapa.com.br") ?: ""
-
                 if (cookies.isEmpty()) {
                     Log.d("ProfileFragment", "Cookies não encontrados")
                     return@launch
                 }
-
                 // Faz o scraping da página de perfil
                 val doc = Jsoup.connect("https://areaexclusiva.colegioetapa.com.br/profile")
                     .header("Cookie", cookies)
                     .get()
-
                 // Encontra a imagem do perfil
                 val imgElement = doc.selectFirst("div.d-flex.justify-content-center img.rounded-circle")
                 val imgUrl = imgElement?.attr("src") ?: ""
-
                 if (imgUrl.isNotEmpty()) {
                     Log.d("ProfileFragment", "Imagem encontrada: $imgUrl")
                     // Baixa a imagem
@@ -464,9 +460,11 @@ class ProfileFragment : Fragment() {
                     if (bitmap != null) {
                         // Salva a imagem localmente
                         val savedPath = saveImageToCache(bitmap)
-                        // Atualiza a UI
+                        // Atualiza a UI, mas verifica se o fragment ainda está ativo
                         withContext(Dispatchers.Main) {
-                            ivProfilePhoto.setImageBitmap(bitmap)
+                            if (isAdded) {
+                                ivProfilePhoto.setImageBitmap(bitmap)
+                            }
                         }
                         // Salva o caminho da imagem nas preferências
                         sharedPreferences.edit { putString(PROFILE_IMAGE_KEY, savedPath) }
@@ -477,7 +475,6 @@ class ProfileFragment : Fragment() {
             }
         }
     }
-
     private fun downloadImage(url: String, cookies: String): Bitmap? {
         return try {
             val connection = URL(url).openConnection() as HttpURLConnection
@@ -494,7 +491,6 @@ class ProfileFragment : Fragment() {
             null
         }
     }
-
     private fun saveImageToCache(bitmap: Bitmap): String {
         return try {
             val cacheDir = requireContext().cacheDir
@@ -508,17 +504,14 @@ class ProfileFragment : Fragment() {
             ""
         }
     }
-
     private fun showError() {
         handler.post {
             profileCard.visibility = View.GONE
         }
     }
-
     private fun navigateToHomeFragment() {
         (activity as? MainActivity)?.navigateToHome()
     }
-
     override fun onDestroyView() {
         super.onDestroyView()
         handler.removeCallbacksAndMessages(null)
