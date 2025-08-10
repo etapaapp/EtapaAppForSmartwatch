@@ -114,6 +114,9 @@ class MoreFragment : Fragment() { // 1. Implemente a interface
         view.findViewById<View>(R.id.navigation_material).setOnClickListener {
             (activity as MainActivity).openCustomFragment(MaterialFragment())
         }
+        view.findViewById<View>(R.id.option_provas_gabaritos).setOnClickListener {
+            (activity as MainActivity).openCustomFragment(ProvasGabaritos())
+        }
     }
 
     private fun showLoading() {
