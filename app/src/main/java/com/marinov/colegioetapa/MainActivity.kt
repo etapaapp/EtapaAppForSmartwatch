@@ -67,9 +67,8 @@ class MainActivity : AppCompatActivity() {
             "notas" -> 1
             "horarios" -> 2
             "provas" -> 3
-            "profile" -> 4
-            "more" -> 5
-            "settings" -> 6
+            "more" -> 4
+            "settings" -> 5
             else -> 0
         }
         viewPager.currentItem = position
@@ -253,7 +252,7 @@ class MainActivity : AppCompatActivity() {
     inner class WatchFragmentPagerAdapter(fa: FragmentActivity) : FragmentStateAdapter(fa) {
         private val fragments = mutableMapOf<Int, Fragment>()
 
-        override fun getItemCount(): Int = 7
+        override fun getItemCount(): Int = 6
 
         override fun createFragment(position: Int): Fragment {
             return when (position) {
@@ -261,9 +260,8 @@ class MainActivity : AppCompatActivity() {
                 1 -> NotasFragment()
                 2 -> HorariosAula()
                 3 -> CalendarioProvas()
-                4 -> ProfileFragment()
-                5 -> MoreFragment()
-                6 -> SettingsFragment()
+                4 -> MoreFragment()
+                5 -> SettingsFragment()
                 else -> HomeFragment()
             }.also {
                 fragments[position] = it

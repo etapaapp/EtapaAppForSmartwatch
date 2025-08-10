@@ -1,7 +1,9 @@
 package com.marinov.colegioetapa
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
@@ -17,6 +19,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import com.google.android.material.button.MaterialButton
 
@@ -30,6 +33,19 @@ class EADOnlineFragment : Fragment() {
     private lateinit var layoutSemInternet: LinearLayout
     private lateinit var btnTentarNovamente: MaterialButton
     private val handler = Handler(Looper.getMainLooper())
+    private var isAuthenticating = false
+
+    // Registrar o launcher para receber resultado da WebViewActivity
+    private val webViewLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        // Quando a WebView retorna (independente do resultado), volta para home
+        handler.postDelayed({
+            if (isAdded && !isDetached) {
+                navigateToHomeFragment()
+            }
+        }, 100) // Pequeno delay para suavizar a transição
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -43,7 +59,11 @@ class EADOnlineFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupViews(view)
         setupBackPressHandler()
-        checkInternetAndAuthentication()
+
+        // Só iniciar autenticação se não estiver já fazendo
+        if (!isAuthenticating) {
+            checkInternetAndAuthentication()
+        }
     }
 
     private fun setupViews(view: View) {
@@ -51,7 +71,11 @@ class EADOnlineFragment : Fragment() {
         btnTentarNovamente = view.findViewById(R.id.btn_tentar_novamente)
 
         btnTentarNovamente.setOnClickListener {
-            navigateToHomeFragment()
+            if (!isAuthenticating) {
+                // Tentar novamente a autenticação
+                layoutSemInternet.visibility = View.GONE
+                checkInternetAndAuthentication()
+            }
         }
     }
 
@@ -70,6 +94,7 @@ class EADOnlineFragment : Fragment() {
             return
         }
 
+        isAuthenticating = true
         performAuthCheck()
     }
 
@@ -82,20 +107,36 @@ class EADOnlineFragment : Fragment() {
 
         authWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
-                view?.evaluateJavascript(
-                    "(function() { " +
-                            "return document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > " +
-                            "div.card.bg-transparent.border-0 > div.card-body.px-0.px-md-3 > div:nth-child(2) > div.card-body > table') !== null; " +
-                            "})();"
-                ) { value ->
-                    val isAuthenticated = value == "true"
-                    if (isAuthenticated) {
-                        startWebViewActivityAndPop()
-                    } else {
-                        showNoInternetUI()
+                super.onPageFinished(view, url)
+
+                // Dar um tempo para a página carregar completamente
+                handler.postDelayed({
+                    if (isAdded && !isDetached) {
+                        view?.evaluateJavascript(
+                            "(function() { " +
+                                    "return document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > " +
+                                    "div.card.bg-transparent.border-0 > div.card-body.px-0.px-md-3 > div:nth-child(2) > div.card-body > table') !== null; " +
+                                    "})();"
+                        ) { value ->
+                            if (isAdded && !isDetached) {
+                                val isAuthenticated = value == "true"
+                                if (isAuthenticated) {
+                                    startWebViewActivity()
+                                } else {
+                                    isAuthenticating = false
+                                    showNoInternetUI()
+                                }
+
+                                // Limpar WebView
+                                try {
+                                    authWebView.destroy()
+                                } catch (e: Exception) {
+                                    // Ignorar erros de destruição
+                                }
+                            }
+                        }
                     }
-                    authWebView.destroy()
-                }
+                }, 1000) // Aguardar 1 segundo para garantir que a página carregou
             }
 
             override fun onReceivedError(
@@ -103,8 +144,16 @@ class EADOnlineFragment : Fragment() {
                 request: WebResourceRequest?,
                 error: WebResourceError?
             ) {
-                showNoInternetUI()
-                authWebView.destroy()
+                super.onReceivedError(view, request, error)
+                if (isAdded && !isDetached) {
+                    isAuthenticating = false
+                    showNoInternetUI()
+                    try {
+                        authWebView.destroy()
+                    } catch (e: Exception) {
+                        // Ignorar erros de destruição
+                    }
+                }
             }
 
             override fun onReceivedHttpError(
@@ -112,32 +161,52 @@ class EADOnlineFragment : Fragment() {
                 request: WebResourceRequest?,
                 errorResponse: WebResourceResponse?
             ) {
-                showNoInternetUI()
-                authWebView.destroy()
-            }
-        }
-        authWebView.loadUrl(AUTH_CHECK_URL)
-    }
-
-    private fun startWebViewActivityAndPop() {
-        WebViewActivity.start(requireContext(), TARGET_URL)
-        view?.post {
-            if (isAdded && !parentFragmentManager.isDestroyed && !parentFragmentManager.isStateSaved) {
-                try {
-                    parentFragmentManager.popBackStackImmediate()
-                } catch (_: IllegalStateException) {
-                    parentFragmentManager.executePendingTransactions()
-                    if (parentFragmentManager.backStackEntryCount > 0) {
-                        parentFragmentManager.popBackStackImmediate()
+                super.onReceivedHttpError(view, request, errorResponse)
+                if (isAdded && !isDetached) {
+                    isAuthenticating = false
+                    showNoInternetUI()
+                    try {
+                        authWebView.destroy()
+                    } catch (e: Exception) {
+                        // Ignorar erros de destruição
                     }
                 }
             }
         }
+
+        authWebView.loadUrl(AUTH_CHECK_URL)
+    }
+
+    private fun startWebViewActivity() {
+        try {
+            if (!isAdded || isDetached) return
+
+            // Criar Intent para WebViewActivity
+            val intent = Intent(requireContext(), WebViewActivity::class.java).apply {
+                putExtra(WebViewActivity.EXTRA_URL, TARGET_URL)
+            }
+
+            // Usar o launcher para iniciar a WebViewActivity e aguardar retorno
+            webViewLauncher.launch(intent)
+
+            isAuthenticating = false
+
+        } catch (e: Exception) {
+            // Em caso de erro, volta para home
+            isAuthenticating = false
+            navigateToHomeFragment()
+        }
     }
 
     private fun showNoInternetUI() {
-        handler.post {
-            layoutSemInternet.visibility = View.VISIBLE
+        if (isAdded && !isDetached) {
+            handler.post {
+                try {
+                    layoutSemInternet.visibility = View.VISIBLE
+                } catch (e: Exception) {
+                    // Ignorar erros de UI
+                }
+            }
         }
     }
 
@@ -151,11 +220,25 @@ class EADOnlineFragment : Fragment() {
     }
 
     private fun navigateToHomeFragment() {
-        (activity as? MainActivity)?.navigateToHome()
+        handler.post {
+            if (isAdded && !isDetached) {
+                try {
+                    (activity as? MainActivity)?.navigateToHome()
+                } catch (e: Exception) {
+                    // Ignorar erros de navegação
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {
-        super.onDestroyView()
+        isAuthenticating = false
         handler.removeCallbacksAndMessages(null)
+        super.onDestroyView()
+    }
+
+    override fun onDetach() {
+        isAuthenticating = false
+        super.onDetach()
     }
 }

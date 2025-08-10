@@ -8,6 +8,8 @@ import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -32,126 +34,166 @@ class WebViewActivity : AppCompatActivity() {
     private lateinit var fullscreenContainer: FrameLayout
     private var originalOrientation: Int = 0
     private var webChromeClient: WebChromeClient? = null
+    private var isInFullscreenMode = false
+    private var isDestroying = false
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_webview)
 
-        // Salvar orientação original
-        originalOrientation = requestedOrientation
+        try {
+            setContentView(R.layout.activity_webview)
 
-        // Configurar para tela cheia (ocultar barras do sistema)
-        hideSystemBars()
+            // Salvar orientação original
+            originalOrientation = requestedOrientation
 
-        webView = findViewById(R.id.webview)
+            // Configurar para tela cheia (ocultar barras do sistema)
+            hideSystemBars()
 
-        // Criar container para fullscreen
-        fullscreenContainer = FrameLayout(this)
+            webView = findViewById(R.id.webview)
 
-        setupWebView()
-        setupDownloadListener()
-        setupBackPressHandler()
+            // Criar container para fullscreen
+            fullscreenContainer = FrameLayout(this)
 
-        val url = intent.getStringExtra(EXTRA_URL) ?: ""
-        webView.loadUrl(url)
+            setupWebView()
+            setupDownloadListener()
+            setupBackPressHandler()
+
+            val url = intent.getStringExtra(EXTRA_URL) ?: ""
+            if (url.isNotEmpty()) {
+                webView.loadUrl(url)
+            } else {
+                // Se não há URL, volta imediatamente
+                finishSafely()
+            }
+        } catch (e: Exception) {
+            finishSafely()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.mediaPlaybackRequiresUserGesture = false
-        webView.settings.userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.loadWithOverviewMode = true
-        webView.settings.useWideViewPort = true
+        try {
+            webView.settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                mediaPlaybackRequiresUserGesture = false
+                userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
+                allowFileAccess = true
+                allowContentAccess = true
+                loadWithOverviewMode = true
+                useWideViewPort = true
+                mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                javaScriptCanOpenWindowsAutomatically = true
+            }
 
-        // Configurações importantes para vídeo
-        webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+            // Configurações para vídeos em tela cheia
+            webChromeClient = object : WebChromeClient() {
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    if (isDestroying) return
 
-        // Configurações para vídeos em tela cheia
-        webChromeClient = object : WebChromeClient() {
-            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                // Se já existe uma view customizada, sair dela primeiro
-                if (customView != null) {
-                    onHideCustomView()
-                    return
+                    // Se já existe uma view customizada, sair dela primeiro
+                    if (customView != null) {
+                        onHideCustomView()
+                        return
+                    }
+
+                    customView = view
+                    customViewCallback = callback
+                    isInFullscreenMode = true
+
+                    try {
+                        // Adicionar a view de fullscreen ao container
+                        val decor = window.decorView as FrameLayout
+                        decor.addView(fullscreenContainer, FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        ))
+
+                        fullscreenContainer.addView(view, FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        ))
+
+                        // Ocultar WebView original
+                        webView.visibility = View.GONE
+
+                        // Configurar orientação para landscape se necessário
+                        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+
+                        // Configurar para tela cheia completa
+                        hideSystemBarsCompletely()
+                    } catch (e: Exception) {
+                        // Se falhar, reverter
+                        onHideCustomView()
+                    }
                 }
 
-                customView = view
-                customViewCallback = callback
+                override fun onHideCustomView() {
+                    if (customView == null || isDestroying) return
 
-                // Adicionar a view de fullscreen ao container
-                val decor = window.decorView as FrameLayout
-                decor.addView(fullscreenContainer, FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                ))
+                    try {
+                        // Mostrar WebView original
+                        webView.visibility = View.VISIBLE
 
-                fullscreenContainer.addView(view, FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                ))
+                        // Remover view de fullscreen
+                        val decor = window.decorView as FrameLayout
+                        decor.removeView(fullscreenContainer)
+                        fullscreenContainer.removeAllViews()
 
-                // Ocultar WebView original
-                webView.visibility = View.GONE
+                        customView = null
+                        customViewCallback?.onCustomViewHidden()
+                        customViewCallback = null
+                        isInFullscreenMode = false
 
-                // Configurar orientação para landscape se necessário
-                requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        // Restaurar orientação original
+                        requestedOrientation = originalOrientation
 
-                // Configurar para tela cheia completa
-                hideSystemBarsCompletely()
-            }
+                        // Restaurar sistema de barras normal
+                        hideSystemBars()
+                    } catch (e: Exception) {
+                        // Ignorar erros na restauração
+                    }
+                }
 
-            override fun onHideCustomView() {
-                // Se não há view customizada, não fazer nada
-                if (customView == null) return
-
-                // Mostrar WebView original
-                webView.visibility = View.VISIBLE
-
-                // Remover view de fullscreen
-                val decor = window.decorView as FrameLayout
-                decor.removeView(fullscreenContainer)
-                fullscreenContainer.removeAllViews()
-
-                customView = null
-                customViewCallback?.onCustomViewHidden()
-                customViewCallback = null
-
-                // Restaurar orientação original
-                requestedOrientation = originalOrientation
-
-                // Restaurar sistema de barras normal
-                hideSystemBars()
-            }
-
-            override fun getVideoLoadingProgressView(): View? {
-                // Você pode retornar uma view customizada para loading de vídeo
-                return null
-            }
-        }
-
-        // Atribuir o WebChromeClient ao WebView
-        webView.webChromeClient = webChromeClient
-
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)
-                // Manter tela cheia mesmo após carregamento (apenas se não estiver em fullscreen)
-                if (customView == null) {
-                    hideSystemBars()
+                override fun getVideoLoadingProgressView(): View? {
+                    return null
                 }
             }
+
+            // Atribuir o WebChromeClient ao WebView
+            webView.webChromeClient = webChromeClient
+
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    if (!isInFullscreenMode && !isDestroying) {
+                        hideSystemBars()
+                    }
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    errorCode: Int,
+                    description: String?,
+                    failingUrl: String?
+                ) {
+                    super.onReceivedError(view, errorCode, description, failingUrl)
+                    if (!isDestroying) {
+                        mainHandler.post {
+                            Toast.makeText(this@WebViewActivity, "Erro ao carregar página", Toast.LENGTH_SHORT).show()
+                            finishSafely()
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            finishSafely()
         }
     }
 
     private fun setupDownloadListener() {
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-            // Para Android 11+, não precisamos de permissões especiais para Downloads
-            // O DownloadManager já tem acesso à pasta Downloads
             startDownload(url, userAgent, contentDisposition, mimeType)
         }
     }
@@ -160,46 +202,32 @@ class WebViewActivity : AppCompatActivity() {
         try {
             val request = DownloadManager.Request(url.toUri())
 
-            // Configurar cookies para a requisição
             val cookies = CookieManager.getInstance().getCookie(url)
             if (!cookies.isNullOrEmpty()) {
                 request.addRequestHeader("cookie", cookies)
             }
             request.addRequestHeader("User-Agent", userAgent)
 
-            // Gerar nome do arquivo
             val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
 
-            // Configurar descrição e título
             request.setDescription("Fazendo download de $fileName")
             request.setTitle(fileName)
-
-            // Permitir que o download seja visível na notificação
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 
-            // Para Android 10+ (API 29+), usar setDestinationInExternalPublicDir é seguro
-            // Para Android 11+ (API 30+), o sistema gerencia automaticamente o acesso
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10+ - usar diretório público sem permissões especiais
                 request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             } else {
-                // Android 9 e inferior - usar diretório público (requer permissão)
                 request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             }
 
-            // Permitir downloads em redes móveis e Wi-Fi
             request.setAllowedNetworkTypes(
                 DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE
             )
-
-            // Permitir que o download continue mesmo se o usuário sair do app
             request.setAllowedOverRoaming(false)
 
-            // Iniciar o download
             val downloadManager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
             downloadManager.enqueue(request)
 
-            // Mostrar mensagem de confirmação
             Toast.makeText(this, "Download iniciado: $fileName", Toast.LENGTH_SHORT).show()
 
         } catch (e: Exception) {
@@ -208,72 +236,176 @@ class WebViewActivity : AppCompatActivity() {
     }
 
     private fun setupBackPressHandler() {
-        // Usar OnBackPressedDispatcher em vez de onBackPressed deprecated
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Se estiver em fullscreen, sair do fullscreen primeiro
-                if (customView != null) {
-                    webChromeClient?.onHideCustomView()
-                    return
-                }
-
-                // Se pode voltar no WebView
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    // Remove este callback e chama o comportamento padrão
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
-                }
+                handleBackPress()
             }
         })
     }
 
+    private fun handleBackPress() {
+        try {
+            // 1. Se estiver em fullscreen de vídeo, sair do fullscreen primeiro
+            if (isInFullscreenMode && customView != null) {
+                webChromeClient?.onHideCustomView()
+                return
+            }
+
+            // 2. Se o WebView pode voltar (histórico de navegação), voltar uma página
+            if (webView.canGoBack()) {
+                webView.goBack()
+                return
+            }
+
+            // 3. Se não pode voltar no WebView, fechar a activity
+            finishSafely()
+        } catch (e: Exception) {
+            finishSafely()
+        }
+    }
+
+    private fun finishSafely() {
+        if (isDestroying) return
+
+        isDestroying = true
+
+        mainHandler.post {
+            try {
+                // Definir resultado como OK
+                setResult(RESULT_OK)
+
+                // Finalizar activity
+                finish()
+
+                // Aplicar transição de saída
+                overridePendingTransition(0, android.R.anim.fade_out)
+
+            } catch (e: Exception) {
+                // Force finish em caso de erro
+                try {
+                    finish()
+                } catch (ex: Exception) {
+                    // Último recurso
+                    finishAndRemoveTask()
+                }
+            }
+        }
+    }
+
     private fun hideSystemBars() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } catch (e: Exception) {
+            // Ignorar erros de UI
         }
     }
 
     private fun hideSystemBarsCompletely() {
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
-            controller.hide(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
+        try {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+            WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
 
-        // Para compatibilidade com versões mais antigas
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                )
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    )
+        } catch (e: Exception) {
+            // Ignorar erros de UI
+        }
     }
 
     override fun onDestroy() {
-        // Limpar recursos quando a activity for destruída
-        if (customView != null) {
-            webChromeClient?.onHideCustomView()
+        isDestroying = true
+
+        try {
+            // Limpar fullscreen se ativo
+            if (isInFullscreenMode && customView != null) {
+                try {
+                    val decor = window.decorView as FrameLayout
+                    decor.removeView(fullscreenContainer)
+                    fullscreenContainer.removeAllViews()
+                    customView = null
+                    customViewCallback?.onCustomViewHidden()
+                    customViewCallback = null
+                } catch (e: Exception) {
+                    // Ignorar erros de limpeza
+                }
+            }
+
+            // Limpar WebView
+            try {
+                webView.stopLoading()
+                webView.clearHistory()
+                webView.clearCache(true)
+                webView.removeAllViews()
+                webView.destroyDrawingCache()
+                webView.destroy()
+            } catch (e: Exception) {
+                // Ignorar erros de limpeza da WebView
+            }
+
+            // Limpar handler
+            mainHandler.removeCallbacksAndMessages(null)
+
+        } catch (e: Exception) {
+            // Ignorar todos os erros durante destruição
         }
+
         super.onDestroy()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            if (!isDestroying) {
+                webView.onPause()
+            }
+        } catch (e: Exception) {
+            // Ignorar erros
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        try {
+            if (!isDestroying) {
+                webView.onResume()
+                if (!isInFullscreenMode) {
+                    hideSystemBars()
+                }
+            }
+        } catch (e: Exception) {
+            // Ignorar erros
+        }
     }
 
     companion object {
         const val EXTRA_URL = "extra_url"
 
         fun start(context: Context, url: String) {
-            val intent = Intent(context, WebViewActivity::class.java).apply {
-                putExtra(EXTRA_URL, url)
+            try {
+                val intent = Intent(context, WebViewActivity::class.java).apply {
+                    putExtra(EXTRA_URL, url)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                // Em caso de erro, não fazer nada
             }
-            context.startActivity(intent)
         }
     }
 }
