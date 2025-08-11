@@ -11,8 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.widget.LinearLayout
-import android.widget.TableLayout
-import android.widget.TableRow
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
@@ -20,6 +18,7 @@ import androidx.core.content.edit
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,12 +38,28 @@ class HorariosAula : Fragment() {
                 "div > div.card-body > table"
     }
 
-    private lateinit var tableHorarios: TableLayout
     private lateinit var barOffline: LinearLayout
     private lateinit var messageContainer: LinearLayout
     private lateinit var tvMessage: TextView
     private lateinit var scrollContainer: androidx.core.widget.NestedScrollView
+    private lateinit var classesContainer: LinearLayout
+    private lateinit var daySelector: LinearLayout
     private lateinit var cache: CacheHelper
+
+    // Dados das aulas organizados por dia
+    private val weekData = mutableMapOf<Int, MutableList<ClassInfo>>()
+    private var currentDay = 1 // Segunda = 1, Terça = 2, etc.
+
+    // Botões dos dias
+    private val dayButtons = mutableListOf<MaterialButton>()
+    private val dayNames = listOf("Segunda", "Terça", "Quarta", "Quinta", "Sexta")
+    private val dayAbbrev = listOf("SEG", "TER", "QUA", "QUI", "SEX")
+
+    data class ClassInfo(
+        val time: String,
+        val teacher: String,
+        val isSpecial: Boolean = false // Para provas, intervalos, etc.
+    )
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,11 +67,13 @@ class HorariosAula : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val root = inflater.inflate(R.layout.fragment_horarios, container, false)
-        tableHorarios = root.findViewById(R.id.tableHorarios)
+
         barOffline = root.findViewById(R.id.barOffline)
         messageContainer = root.findViewById(R.id.messageContainer)
         tvMessage = root.findViewById(R.id.tvMessage)
         scrollContainer = root.findViewById(R.id.scrollContainer)
+        classesContainer = root.findViewById(R.id.classesContainer)
+        daySelector = root.findViewById(R.id.daySelector)
 
         val btnLogin: MaterialButton = root.findViewById(R.id.btnLogin)
         cache = CacheHelper(requireContext())
@@ -65,6 +82,7 @@ class HorariosAula : Fragment() {
             (activity as? MainActivity)?.navigateToHome()
         }
 
+        setupDaySelector()
         return root
     }
 
@@ -81,11 +99,159 @@ class HorariosAula : Fragment() {
         fetchHorarios()
     }
 
+    private fun setupDaySelector() {
+        dayButtons.clear()
+        daySelector.removeAllViews()
+
+        dayAbbrev.forEachIndexed { index, dayAbbr ->
+            val button = MaterialButton(
+                requireContext(),
+                null,
+                com.google.android.material.R.attr.materialButtonOutlinedStyle
+            ).apply {
+                text = dayAbbr
+                textSize = 10f
+                isAllCaps = true
+                minimumWidth = 0
+                minWidth = 0
+
+                // Tornar o botão circular
+                val size = (48 * resources.displayMetrics.density).toInt()
+                val params = LinearLayout.LayoutParams(size, size).apply {
+                    setMargins(6, 8, 6, 8)
+                }
+                layoutParams = params
+
+                cornerRadius = size / 2
+                insetTop = 0
+                insetBottom = 0
+                iconPadding = 0
+
+                // Garantir que o padding interno seja adequado para texto
+                setPadding(0, 0, 0, 0)
+
+                setOnClickListener {
+                    selectDay(index + 1)
+                }
+            }
+            dayButtons.add(button)
+            daySelector.addView(button)
+        }
+
+        selectDay(currentDay)
+    }
+
+    private fun selectDay(dayIndex: Int) {
+        currentDay = dayIndex
+
+        // Atualizar visual dos botões
+        dayButtons.forEachIndexed { index, button ->
+            if (index + 1 == dayIndex) {
+                button.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.colorPrimary)
+                button.setTextColor(ContextCompat.getColor(requireContext(), R.color.colorOnPrimary))
+                button.strokeWidth = 0
+            } else {
+                button.backgroundTintList = ContextCompat.getColorStateList(requireContext(), android.R.color.transparent)
+                button.setTextColor(ContextCompat.getColor(requireContext(), R.color.colorPrimary))
+                button.strokeColor = ContextCompat.getColorStateList(requireContext(), R.color.colorPrimary)
+                button.strokeWidth = 2
+            }
+        }
+
+        displayCurrentDay()
+    }
+
+    private fun displayCurrentDay() {
+        if (!isAdded) return
+
+        classesContainer.removeAllViews()
+        val classes = weekData[currentDay] ?: emptyList()
+
+        if (classes.isEmpty()) {
+            val emptyView = TextView(requireContext()).apply {
+                text = "Nenhuma aula encontrada para ${dayNames[currentDay - 1]}"
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                setTextAppearance(android.R.style.TextAppearance_Material_Body1)
+                setPadding(16, 32, 16, 32)
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.colorOnSurface))
+            }
+            classesContainer.addView(emptyView)
+            return
+        }
+
+        classes.forEach { classInfo ->
+            val classCard = createClassCard(classInfo)
+            classesContainer.addView(classCard)
+        }
+    }
+
+    private fun createClassCard(classInfo: ClassInfo): MaterialCardView {
+        val card = MaterialCardView(requireContext()).apply {
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(16, 8, 16, 8)
+            }
+            layoutParams = params
+            cardElevation = 4f
+            radius = 12f
+        }
+
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(16, 12, 16, 12)
+        }
+
+        // Horário
+        val timeView = TextView(requireContext()).apply {
+            text = classInfo.time
+            setTextAppearance(android.R.style.TextAppearance_Material_Headline)
+            textSize = 16f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.colorPrimary))
+
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 0, 16, 0)
+            }
+            layoutParams = params
+            minWidth = (80 * resources.displayMetrics.density).toInt()
+        }
+
+        // Professor/Matéria
+        val teacherView = TextView(requireContext()).apply {
+            text = classInfo.teacher
+            setTextAppearance(android.R.style.TextAppearance_Material_Body1)
+            textSize = 14f
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.colorOnSurface))
+
+            val params = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+            layoutParams = params
+
+            if (classInfo.isSpecial) {
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
+                setBackgroundResource(R.drawable.bg_primary_rounded)
+                setPadding(12, 8, 12, 8)
+            }
+        }
+
+        container.addView(timeView)
+        container.addView(teacherView)
+        card.addView(container)
+
+        return card
+    }
+
     private fun fetchHorarios() {
-        // ALTERAÇÃO: Usar viewLifecycleOwner.lifecycleScope para garantir que a corrotina
-        // seja cancelada quando a view do fragment for destruída. Isso previne crashes.
         viewLifecycleOwner.lifecycleScope.launch {
-            // Verificação de segurança: não fazer nada se o fragment não estiver mais anexado.
             if (!isAdded) return@launch
 
             try {
@@ -103,8 +269,6 @@ class HorariosAula : Fragment() {
                     }
                 }
 
-                // Verificação de segurança: não continuar se o fragment foi destruído enquanto
-                // a requisição de rede estava em andamento.
                 if (!isAdded) return@launch
 
                 if (doc != null) {
@@ -122,8 +286,9 @@ class HorariosAula : Fragment() {
                         if (dataRows.isNotEmpty()) {
                             cache.saveHtml(table.outerHtml())
                             cache.clearAlertMessage()
-                            parseAndBuildTable(table)
+                            parseTableData(table)
                             hideOfflineBar()
+                            showSchedule()
                         } else {
                             val alert = doc.selectFirst(ALERT_SELECTOR)
                             if (alert != null) {
@@ -156,9 +321,46 @@ class HorariosAula : Fragment() {
                 }
             } catch (e: Exception) {
                 Log.e("HorariosAula", "Erro inesperado", e)
-                if (isAdded) { // Apenas modificar UI se o fragment estiver anexado
+                if (isAdded) {
                     showOfflineBar()
                     loadCachedData()
+                }
+            }
+        }
+    }
+
+    private fun parseTableData(table: Element) {
+        if (!isAdded) return
+
+        weekData.clear()
+
+        val rows = table.select("tbody > tr")
+
+        for (tr in rows) {
+            if (tr.select("div.alert-info").isNotEmpty()) continue
+
+            val cells = tr.select("td, th")
+            if (cells.size < 6) continue
+
+            val timeCell = cells[0].text().trim()
+            if (timeCell.isEmpty() || timeCell.equals("Horários", ignoreCase = true)) continue
+
+            // Processar cada dia da semana (Segunda a Sexta = células 1 a 5)
+            for (dayIndex in 1..5) {
+                if (dayIndex < cells.size) {
+                    val cellText = cells[dayIndex].text().trim()
+                    val isSpecial = cells[dayIndex].hasClass("bg-primary") ||
+                            cellText.contains("Prova", ignoreCase = true) ||
+                            cellText.contains("Intervalo", ignoreCase = true)
+
+                    if (cellText.isNotEmpty() && cellText != "-") {
+                        val classInfo = ClassInfo(timeCell, cellText, isSpecial)
+
+                        if (!weekData.containsKey(dayIndex)) {
+                            weekData[dayIndex] = mutableListOf()
+                        }
+                        weekData[dayIndex]?.add(classInfo)
+                    }
                 }
             }
         }
@@ -170,7 +372,8 @@ class HorariosAula : Fragment() {
             try {
                 val table = Jsoup.parse(html).selectFirst("table")
                 if (table != null) {
-                    parseAndBuildTable(table)
+                    parseTableData(table)
+                    showSchedule()
                     return
                 }
             } catch (e: Exception) {
@@ -185,93 +388,34 @@ class HorariosAula : Fragment() {
         }
     }
 
-    private fun parseAndBuildTable(table: Element) {
-        if (!isAdded) return // Verificação de segurança
+    private fun showSchedule() {
+        if (!isAdded) return
         hideMessage()
         scrollContainer.visibility = View.VISIBLE
-        tableHorarios.removeAllViews()
-
-        val headerBgColor = ContextCompat.getColor(requireContext(), R.color.colorPrimary)
-        val textColor = ContextCompat.getColor(requireContext(), R.color.colorOnSurface)
-
-        val headerRowHtml = table.selectFirst("thead > tr")
-        if (headerRowHtml != null) {
-            val headerRow = TableRow(requireContext())
-            headerRow.setBackgroundColor(headerBgColor)
-            for (th in headerRowHtml.select("th")) {
-                val tv = createCell(th.text(), true)
-                tv.setTextColor(ContextCompat.getColor(requireContext(), R.color.colorOnPrimary))
-                headerRow.addView(tv)
-            }
-            tableHorarios.addView(headerRow)
-        }
-
-        val rows = table.select("tbody > tr")
-        for (tr in rows) {
-            if (tr.select("div.alert-info").isNotEmpty()) continue
-
-            val row = TableRow(requireContext())
-            row.setBackgroundColor(ContextCompat.getColor(requireContext(), android.R.color.transparent))
-
-            for (cell in tr.children()) {
-                val isHeaderCell = cell.tagName() == "th"
-                val tv = createCell(cell.text(), isHeaderCell)
-                tv.setTextColor(textColor)
-
-                if (cell.hasClass("bg-primary")) {
-                    tv.setBackgroundResource(R.drawable.bg_primary_rounded)
-                    tv.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.white))
-                }
-                row.addView(tv)
-            }
-            tableHorarios.addView(row)
-        }
+        daySelector.visibility = View.VISIBLE
+        displayCurrentDay()
     }
 
     private fun showNoClassesMessage(message: String) {
-        if (!isAdded) return // Verificação de segurança
+        if (!isAdded) return
         scrollContainer.visibility = View.GONE
+        daySelector.visibility = View.GONE
         tvMessage.text = message
         messageContainer.visibility = View.VISIBLE
     }
 
     private fun hideMessage() {
-        if (!isAdded) return // Verificação de segurança
+        if (!isAdded) return
         messageContainer.visibility = View.GONE
     }
 
-    private fun createCell(text: String, isHeader: Boolean): TextView {
-        return TextView(requireContext()).apply {
-            this.text = text
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isHeader) 14f else 13f)
-            typeface = Typeface.defaultFromStyle(if (isHeader) Typeface.BOLD else Typeface.NORMAL)
-
-            val padH = (12 * resources.displayMetrics.density).toInt()
-            val padV = (8 * resources.displayMetrics.density).toInt()
-            setPadding(padH, padV, padH, padV)
-
-            val minWidth = (80 * resources.displayMetrics.density).toInt()
-            setMinWidth(minWidth)
-
-            layoutParams = TableRow.LayoutParams(
-                0,
-                TableRow.LayoutParams.WRAP_CONTENT,
-                1f
-            ).apply {
-                setMargins(2, 2, 2, 2)
-            }
-
-            textAlignment = View.TEXT_ALIGNMENT_CENTER
-        }
-    }
-
     private fun showOfflineBar() {
-        if (!isAdded) return // Verificação de segurança
+        if (!isAdded) return
         barOffline.visibility = View.VISIBLE
     }
 
     private fun hideOfflineBar() {
-        if (!isAdded) return // Verificação de segurança
+        if (!isAdded) return
         barOffline.visibility = View.GONE
     }
 
@@ -297,7 +441,6 @@ class HorariosAula : Fragment() {
         fun loadHtml(): String? {
             return prefs.getString(KEY_HTML, null)
         }
-
 
         fun loadAlertMessage(): String? {
             return prefs.getString(KEY_ALERT, null)

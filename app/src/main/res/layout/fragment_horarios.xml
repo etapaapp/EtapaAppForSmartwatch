@@ -5,8 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/fundocartao"
-    >
+    android:background="@color/fundocartao">
 
     <LinearLayout
         android:orientation="vertical"
@@ -77,31 +76,29 @@
             android:id="@+id/scrollContainer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_weight="1"
+            android:paddingBottom="72dp">
 
-            <HorizontalScrollView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:id="@+id/classesContainer"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fillViewport="true"
-                android:paddingBottom="8dp">
+                android:orientation="vertical"
+                android:paddingTop="8dp"/>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_margin="8dp"
-                    app:cardCornerRadius="8dp"
-                    app:cardElevation="4dp">
-
-                    <TableLayout
-                        android:id="@+id/tableHorarios"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:shrinkColumns="*"
-                        android:stretchColumns="*"
-                        android:background="@color/fundocartao"
-                        />
-                </com.google.android.material.card.MaterialCardView>
-            </HorizontalScrollView>
         </androidx.core.widget.NestedScrollView>
+
+        <!-- Seletor de Dias da Semana -->
+        <LinearLayout
+            android:id="@+id/daySelector"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:background="?attr/colorSurface"
+            android:gravity="center"
+            android:elevation="8dp"/>
+
     </LinearLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
