@@ -33,7 +33,7 @@ import org.jsoup.nodes.Document
 import java.io.IOException
 import java.util.Calendar
 
-class HomeFragment : Fragment() {
+class HomeFragment : Fragment(), LoginStateListener {
 
     private var layoutSemInternet: LinearLayout? = null
     private var btnTentarNovamente: MaterialButton? = null
@@ -174,6 +174,8 @@ class HomeFragment : Fragment() {
     private fun fetchDataInBackground() {
         if (contentContainer?.visibility == View.VISIBLE) {
             topLoadingBar?.visibility = View.VISIBLE
+        } else {
+            showLoadingState()
         }
 
         lifecycleScope.launch {
@@ -203,9 +205,9 @@ class HomeFragment : Fragment() {
                     withContext(Dispatchers.Main) {
                         if (isFragmentDestroyed) return@withContext
                         setupRecentGrades(recentGrades)
+                        isDataLoaded = true
+                        showContentState()
                     }
-
-                    isDataLoaded = true
                 } else {
                     Log.d(TAG, "Sessão inválida - abrindo popup de login")
                     withContext(Dispatchers.Main) {
@@ -221,8 +223,8 @@ class HomeFragment : Fragment() {
                 withContext(Dispatchers.Main) {
                     if (!isFragmentDestroyed) {
                         topLoadingBar?.visibility = View.GONE
-                        if (isDataLoaded) {
-                            showContentState()
+                        if (!isDataLoaded) {
+                            showOfflineState()
                         }
                     }
                 }
@@ -360,14 +362,12 @@ class HomeFragment : Fragment() {
         }
     }
 
-    fun onLoginSuccess() {
-        Log.d(TAG, "Login bem-sucedido - forçando recarregamento")
+    override fun onLoginSuccess() {
+        Log.d(TAG, "Login bem-sucedido - forçando recarregamento do HomeFragment")
         clearCache()
         isDataLoaded = false
         checkInternetAndLoadData()
     }
-
-    private fun isValidSession(doc: Document?): Boolean = isValidSessionStatic(doc)
 
     private fun handleInvalidSession() {
         if (isFragmentDestroyed || shouldBlockNavigation) {
@@ -435,24 +435,16 @@ class HomeFragment : Fragment() {
 
     private fun showLoginPopup() {
         Log.d(TAG, "Solicitado showLoginPopup()")
-        if (childFragmentManager.findFragmentByTag("login_dialog") != null) {
+        val fragmentManager = activity?.supportFragmentManager ?: return
+        if (fragmentManager.findFragmentByTag("login_dialog") != null) {
             Log.d(TAG, "Login dialog já está aberto")
             return
         }
         val dlg = LoginDialogFragment()
         dlg.isCancelable = false
-        try {
-            dlg.show(childFragmentManager, "login_dialog")
-            childFragmentManager.executePendingTransactions()
-            Log.d(TAG, "Login dialog exibido (childFragmentManager).")
-        } catch (e: Exception) {
-            Log.w(TAG, "Erro ao mostrar dialog via childFragmentManager: ${e.message}")
-        }
+        dlg.show(fragmentManager, "login_dialog")
     }
 
-    /**
-     * Nested (estática) DialogFragment — não é 'inner', portanto é recriável pelo framework.
-     */
     class LoginDialogFragment : DialogFragment() {
 
         private lateinit var webView: WebView
@@ -465,40 +457,32 @@ class HomeFragment : Fragment() {
             val dlg = super.onCreateDialog(savedInstanceState)
             dlg.setCanceledOnTouchOutside(false)
             isCancelable = false
-            dlg.setOnKeyListener(DialogInterface.OnKeyListener { _, keyCode, event ->
-                if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                    return@OnKeyListener true
-                }
-                false
-            })
+            dlg.setOnKeyListener { _, keyCode, event ->
+                keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP
+            }
             return dlg
         }
 
         override fun onStart() {
             super.onStart()
-            try {
-                dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            } catch (e: Exception) {
-                Log.w(HomeFragment.TAG, "Não foi possível ajustar layout do diálogo: ${e.message}")
-            }
+            dialog?.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            dialog?.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         }
 
         override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
             val root = FrameLayout(requireContext())
             root.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
-            val sizePx = (48 * requireContext().resources.displayMetrics.density + 0.5f).toInt()
             progress = ProgressBar(requireContext()).apply {
                 isIndeterminate = true
-                val lp = FrameLayout.LayoutParams(sizePx, sizePx)
+                val lp = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
                 lp.gravity = android.view.Gravity.CENTER
                 layoutParams = lp
-                visibility = View.VISIBLE
             }
 
             webView = WebView(requireContext())
             webView.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            webView.visibility = View.INVISIBLE // Começa invisível
 
             root.addView(webView)
             root.addView(progress)
@@ -510,18 +494,10 @@ class HomeFragment : Fragment() {
 
         @SuppressLint("SetJavaScriptEnabled")
         private fun initializeLoginWebView() {
-            Log.d(HomeFragment.TAG, "Inicializando WebView do LoginDialogFragment")
             CookieManager.getInstance().apply {
                 setAcceptCookie(true)
-                try { setAcceptThirdPartyCookies(webView, true) } catch (_: Throwable) {}
+                setAcceptThirdPartyCookies(webView, true)
                 flush()
-            }
-
-            webView.apply {
-                setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-                visibility = View.INVISIBLE
             }
 
             with(webView.settings) {
@@ -529,248 +505,98 @@ class HomeFragment : Fragment() {
                 domStorageEnabled = true
                 loadWithOverviewMode = true
                 useWideViewPort = true
-                builtInZoomControls = true
-                displayZoomControls = false
                 userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
 
             val prefs = requireContext().getSharedPreferences(AUTOFILL_PREFS, Context.MODE_PRIVATE)
             webView.addJavascriptInterface(JsInterface(prefs), "AndroidAutofill")
-            setupWebViewSecurity(webView)
 
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url?.toString() ?: return false
-                    Log.d(HomeFragment.TAG, "LoginDialog shouldOverrideUrlLoading -> $url")
                     if (isHomeUrl(url)) {
                         onLoginDetected()
                         return true
                     }
-                    return super.shouldOverrideUrlLoading(view, request)
+                    return false
                 }
 
                 override fun onPageFinished(view: WebView, url: String) {
-                    super.onPageFinished(view, url)
-                    Log.d(HomeFragment.TAG, "LoginDialog onPageFinished -> $url")
+                    if (!isAdded) return
+                    removeHeader(view)
+                    injectAutoFillScript(view)
+                    if (isSystemDarkModeStatic(requireContext())) injectCssDarkMode(view)
 
-                    if (!isAdded) {
-                        Log.w(HomeFragment.TAG, "onPageFinished ignorado porque fragment não está anexado")
-                        return
-                    }
-
-                    try {
-                        removeHeader(view)
-                        injectAutoFillScript(view)
-
-                        context?.let { ctx ->
-                            if (isSystemDarkModeStatic(ctx)) injectCssDarkMode(view)
-                        }
-
-                        if (isHomeUrl(url)) {
-                            onLoginDetected()
-                            return
-                        }
-
+                    if (isHomeUrl(url)) {
+                        onLoginDetected()
+                    } else {
                         showWebViewWithAnimation(view)
                         progress.visibility = View.GONE
                         fallbackShown = true
-                    } catch (e: Exception) {
-                        Log.w(HomeFragment.TAG, "Erro seguro em onPageFinished: ${e.message}")
                     }
                 }
 
-                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                    Log.w(HomeFragment.TAG, "LoginDialog onReceivedError: ${error?.description}")
-                }
-
-                private fun isHomeUrl(url: String?): Boolean {
-                    return url?.contains(HOME_URL) == true || url?.endsWith("/home") == true
-                }
+                private fun isHomeUrl(url: String?) = url?.startsWith(HOME_URL) == true
             }
-
-            webView.webChromeClient = WebChromeClient()
             webView.loadUrl(LOGIN_URL)
-
-            handler.postDelayed({
-                if (!fallbackShown && isAdded && !isRemoving) {
-                    Log.d(HomeFragment.TAG, "Fallback: exibindo WebView pois onPageFinished não ocorreu rápido")
-                    try {
-                        webView.visibility = View.VISIBLE
-                        progress.visibility = View.GONE
-                    } catch (_: Exception) {}
-                }
-            }, 8_000L)
-
-            pollJob = lifecycleScope.launch {
-                val maxAttempts = 30
-                try {
-                    repeat(maxAttempts) { attempt ->
-                        if (!isAdded || isRemoving) {
-                            Log.d(HomeFragment.TAG, "Polling interrompido - dialog não mais adicionado")
-                            return@launch
-                        }
-                        Log.d(HomeFragment.TAG, "Polling sessão: tentativa ${attempt + 1}/$maxAttempts")
-                        val doc = withContext(Dispatchers.IO) { fetchPageDataStatic(HOME_URL) }
-                        if (isValidSessionStatic(doc)) {
-                            Log.d(HomeFragment.TAG, "Polling: sessão válida detectada pela requisição JSoup")
-                            withContext(Dispatchers.Main) {
-                                if (!isAdded) return@withContext
-                                try { webView.visibility = View.VISIBLE } catch (_: Exception) {}
-                                try { progress.visibility = View.GONE } catch (_: Exception) {}
-                                onLoginDetected()
-                            }
-                            return@launch
-                        }
-                        delay(1000L)
-                    }
-                    Log.d(HomeFragment.TAG, "Polling finalizado sem detectar sessão (timeout)")
-                    withContext(Dispatchers.Main) {
-                        if (!isAdded) return@withContext
-                        try { webView.visibility = View.VISIBLE } catch (_: Exception) {}
-                        try { progress.visibility = View.GONE } catch (_: Exception) {}
-                    }
-                } catch (e: CancellationException) {
-                    Log.d(HomeFragment.TAG, "Polling cancelado")
-                } catch (e: Exception) {
-                    Log.w(HomeFragment.TAG, "Erro no polling de sessão: ${e.message}")
-                }
-            }
-        }
-
-        override fun onDestroyView() {
-            super.onDestroyView()
-            try { pollJob?.cancel() } catch (_: Exception) {}
-            try { handler.removeCallbacksAndMessages(null) } catch (_: Exception) {}
-        }
-
-        override fun onDetach() {
-            super.onDetach()
-            try { pollJob?.cancel() } catch (_: Exception) {}
-            try { handler.removeCallbacksAndMessages(null) } catch (_: Exception) {}
         }
 
         private fun onLoginDetected() {
-            try { CookieManager.getInstance().flush() } catch (_: Exception) {}
-            Log.d(HomeFragment.TAG, "Login detectado dentro do dialog - fechando e notificando host")
-            val host = parentFragment as? HomeFragment
-            try { host?.onLoginSuccess() } catch (e: Exception) { Log.w(HomeFragment.TAG, "Erro ao notificar host: ${e.message}") }
-
-            if (isAdded && !isRemoving) {
-                try { pollJob?.cancel(); dismissAllowingStateLoss() } catch (_: Exception) {}
-            }
-        }
-
-        private fun setupWebViewSecurity(wv: WebView) {
-            wv.apply {
-                setOnLongClickListener { true }
-                isLongClickable = false
-                isHapticFeedbackEnabled = false
-            }
+            if (!isAdded || isRemoving) return
+            Log.d(TAG, "Login detectado. Notificando MainActivity.")
+            CookieManager.getInstance().flush()
+            (activity as? MainActivity)?.onGlobalLoginSuccess()
+            dismissAllowingStateLoss()
         }
 
         private fun showWebViewWithAnimation(view: WebView) {
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    view.alpha = 0f
-                    view.visibility = View.VISIBLE
-                    view.animate().alpha(1f).duration = 300
-                } catch (_: Exception) {}
-            }, 100)
+            view.alpha = 0f
+            view.visibility = View.VISIBLE
+            view.animate().alpha(1f).setDuration(300).start()
         }
 
         private fun removeHeader(view: WebView) {
             val js = """
-            document.documentElement.style.webkitTouchCallout='none';
-            document.documentElement.style.webkitUserSelect='none';
             var nav=document.querySelector('#page-content-wrapper > nav'); if(nav) nav.remove();
             var sidebar=document.querySelector('#sidebar-wrapper'); if(sidebar) sidebar.remove();
             var responsavelTab=document.querySelector('#responsavel-tab'); if(responsavelTab) responsavelTab.remove();
             var alunoTab=document.querySelector('#aluno-tab'); if(alunoTab) alunoTab.remove();
             var login=document.querySelector('#login'); if(login) login.remove();
             var cardElement=document.querySelector('body > div.row.mx-0.pt-4 > div > div.card.mt-4.border-radius-card.border-0.shadow'); if(cardElement) cardElement.remove();
-            var backButton = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-body.px-0.px-md-3 > div:nth-child(1) > div.card-header.bg-soft-blue.border-left-blue.text-blue.rounded > i.fas.fa-chevron-left.btn-outline-primary.py-1.px-2.rounded.mr-2');
-            if (backButton) backButton.remove();
-            var darkHeader = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-header.bg-dark.rounded.d-flex.align-items-center.justify-content-center');
-            if (darkHeader) darkHeader.remove();
-            var style=document.createElement('style');
-            style.type='text/css';
-            style.appendChild(document.createTextNode('::-webkit-scrollbar{display:none;}'));
-            document.head.appendChild(style);
-        """.trimIndent()
-            try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
+            """.trimIndent()
+            view.evaluateJavascript(js, null)
         }
 
         private fun injectAutoFillScript(view: WebView) {
             val script = """
                 (function() {
-                    const observerConfig = { childList: true, subtree: true };
-                    const userFields = ['#matricula'];
-                    const passFields = ['#senha'];
-                    
-                    function setupAutofill() {
-                        const userField = document.querySelector(userFields.join(', '));
-                        const passField = document.querySelector(passFields.join(', '));
-                        
-                        if (userField && passField) {
-                            if (userField.value === '') {
-                                userField.value = AndroidAutofill.getSavedUser();
-                            }
-                            if (passField.value === '') {
-                                passField.value = AndroidAutofill.getSavedPassword();
-                            }
-                            
-                            function handleInput() {
-                                AndroidAutofill.saveCredentials(userField.value, passField.value);
-                            }
-                            
-                            userField.addEventListener('input', handleInput);
-                            passField.addEventListener('input', handleInput);
-                            return true;
-                        }
-                        return false;
+                    const userField = document.querySelector('#matricula');
+                    const passField = document.querySelector('#senha');
+                    if (userField && passField) {
+                        userField.value = AndroidAutofill.getSavedUser();
+                        passField.value = AndroidAutofill.getSavedPassword();
+                        function handleInput() { AndroidAutofill.saveCredentials(userField.value, passField.value); }
+                        userField.addEventListener('input', handleInput);
+                        passField.addEventListener('input', handleInput);
                     }
-                    
-                    if (!setupAutofill()) {
-                        const observer = new MutationObserver((mutations) => {
-                            if (setupAutofill()) {
-                                observer.disconnect();
-                            }
-                        });
-                        observer.observe(document.body, observerConfig);
-                    }
-                    
-                    document.querySelectorAll('.nav-link').forEach(tab => {
-                        tab.addEventListener('click', () => {
-                            setTimeout(setupAutofill, 300);
-                        });
-                    });
                 })();
             """.trimIndent()
-            try { view.evaluateJavascript(script, null) } catch (_: Exception) {}
+            view.evaluateJavascript(script, null)
         }
 
         private fun injectCssDarkMode(view: WebView) {
-            val css = "html{filter:invert(1) hue-rotate(180deg)!important;background:#121212!important;}" +
-                    "img,picture,video,iframe{filter:invert(1) hue-rotate(180deg)!important;}"
-            val js = "(function(){var s=document.createElement('style');s.innerHTML=\"$css\";document.head.appendChild(s);})();"
-            try { view.evaluateJavascript(js, null) } catch (_: Exception) {}
+            val css = "html{filter:invert(1) hue-rotate(180deg)!important;background:#121212!important;}img,picture,video,iframe{filter:invert(1) hue-rotate(180deg)!important;}"
+            val js = "var s=document.createElement('style');s.innerHTML='$css';document.head.appendChild(s);"
+            view.evaluateJavascript(js, null)
         }
 
         private inner class JsInterface(private val prefs: android.content.SharedPreferences) {
-            @JavascriptInterface
-            fun saveCredentials(user: String, pass: String) = prefs.edit {
-                putString("user", user)
-                putString("password", pass)
-            }
-
-            @JavascriptInterface
-            fun getSavedUser(): String = prefs.getString("user", "") ?: ""
-
-            @JavascriptInterface
-            fun getSavedPassword(): String = prefs.getString("password", "") ?: ""
+            @JavascriptInterface fun saveCredentials(user: String, pass: String) = prefs.edit { putString("user", user); putString("password", pass) }
+            @JavascriptInterface fun getSavedUser(): String = prefs.getString("user", "") ?: ""
+            @JavascriptInterface fun getSavedPassword(): String = prefs.getString("password", "") ?: ""
         }
     }
+
     private fun showLoadingState() {
         if (isFragmentDestroyed) return
         loadingContainer?.visibility = View.VISIBLE

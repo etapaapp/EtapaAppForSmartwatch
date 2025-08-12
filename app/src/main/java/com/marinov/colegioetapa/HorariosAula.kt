@@ -5,7 +5,6 @@ import android.content.SharedPreferences
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
-import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -24,8 +23,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
+import java.util.Calendar
 
-class HorariosAula : Fragment() {
+class HorariosAula : Fragment(), LoginStateListener {
 
     private companion object {
         const val URL_HORARIOS = "https://areaexclusiva.colegioetapa.com.br/horarios/aulas"
@@ -75,6 +75,19 @@ class HorariosAula : Fragment() {
         classesContainer = root.findViewById(R.id.classesContainer)
         daySelector = root.findViewById(R.id.daySelector)
 
+        // Seleção automática do dia da semana atual
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) // SUNDAY = 1, MONDAY = 2, ...
+
+        currentDay = when (dayOfWeek) {
+            Calendar.MONDAY -> 1
+            Calendar.TUESDAY -> 2
+            Calendar.WEDNESDAY -> 3
+            Calendar.THURSDAY -> 4
+            Calendar.FRIDAY -> 5
+            else -> 1 // Default to Monday for Saturday/Sunday
+        }
+
         val btnLogin: MaterialButton = root.findViewById(R.id.btnLogin)
         cache = CacheHelper(requireContext())
 
@@ -96,6 +109,11 @@ class HorariosAula : Fragment() {
         }
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
 
+        fetchHorarios()
+    }
+
+    override fun onLoginSuccess() {
+        Log.d("HorariosAula", "Login detectado, recarregando horários.")
         fetchHorarios()
     }
 
@@ -169,7 +187,7 @@ class HorariosAula : Fragment() {
 
         if (classes.isEmpty()) {
             val emptyView = TextView(requireContext()).apply {
-                text = "Nenhuma aula encontrada para ${dayNames[currentDay - 1]}"
+                text = "Não foram encontradas aulas para esse dia."
                 textAlignment = View.TEXT_ALIGNMENT_CENTER
                 setTextAppearance(android.R.style.TextAppearance_Material_Body1)
                 setPadding(16, 32, 16, 32)

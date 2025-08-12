@@ -4,9 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
-import android.net.Network
 import android.net.NetworkCapabilities
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -40,7 +38,7 @@ import org.jsoup.nodes.Element
 import java.util.Calendar
 import java.util.Locale
 
-class CalendarioProvas : Fragment() {
+class CalendarioProvas : Fragment(), LoginStateListener {
 
     private companion object {
         const val URL_BASE = "https://areaexclusiva.colegioetapa.com.br/provas/datas"
@@ -111,6 +109,11 @@ class CalendarioProvas : Fragment() {
                 }
             }
         )
+    }
+
+    override fun onLoginSuccess() {
+        Log.d("CalendarioProvas", "Login detectado, recarregando calendário.")
+        carregarDadosParaMes()
     }
 
     private fun setupRecyclerView() {
@@ -237,7 +240,6 @@ class CalendarioProvas : Fragment() {
     }
 
     private fun fetchProvas(url: String) {
-        // ALTERAÇÃO: Usar viewLifecycleOwner.lifecycleScope para previnir crashes.
         viewLifecycleOwner.lifecycleScope.launch {
             if (!isAdded) return@launch
             try {

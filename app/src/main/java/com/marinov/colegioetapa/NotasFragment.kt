@@ -18,17 +18,17 @@ import android.widget.TableRow
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.fragment.app.Fragment
-import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import java.text.DecimalFormat
-import androidx.core.content.edit
 
-class NotasFragment : Fragment() { // Implemente a interface
+class NotasFragment : Fragment(), LoginStateListener {
 
     private companion object {
         const val URL_NOTAS = "https://areaexclusiva.colegioetapa.com.br/provas/notas"
@@ -67,9 +67,13 @@ class NotasFragment : Fragment() { // Implemente a interface
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
     }
 
+    override fun onLoginSuccess() {
+        Log.d("NotasFragment", "Login detectado, recarregando notas.")
+        fetchNotas()
+    }
+
     @SuppressLint("SetTextI18n")
     private fun parseAndBuildTable(table: Element) {
-        // Verificação crítica de contexto
         val context = context ?: return
 
         tableNotas.removeAllViews()
@@ -189,13 +193,13 @@ class NotasFragment : Fragment() { // Implemente a interface
     }
 
     private fun fetchNotas() {
-        CoroutineScope(Dispatchers.Main).launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val doc = withContext(Dispatchers.IO) {
                     try {
                         val cookieHeader = CookieManager.getInstance().getCookie(URL_NOTAS)
                         Jsoup.connect(URL_NOTAS)
-                            .header("Cookie", cookieHeader)
+                            .header("Cookie", cookieHeader ?: "")
                             .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15")
                             .timeout(15000)
                             .get()
@@ -233,7 +237,6 @@ class NotasFragment : Fragment() { // Implemente a interface
                     loadCachedData()
                     showOfflineBar()
                 }
-            } finally {
             }
         }
     }

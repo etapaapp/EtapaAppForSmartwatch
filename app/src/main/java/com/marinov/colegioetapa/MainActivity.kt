@@ -208,7 +208,11 @@ class MainActivity : AppCompatActivity() {
             viewPagerContainer.visibility = View.GONE
             viewPager.visibility = View.VISIBLE
             supportFragmentManager.popBackStack()
+        } else if (viewPager.currentItem != 0) {
+            // Se não estiver na Home, navega para a Home
+            viewPager.currentItem = 0
         } else {
+            // Se estiver na Home, fecha o app
             super.onBackPressed()
         }
     }
@@ -241,12 +245,27 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "Navegando para Home")
         // Se há fragment no backstack, remove
         if (supportFragmentManager.backStackEntryCount > 0) {
-            viewPagerContainer.visibility = View.GONE
-            viewPager.visibility = View.VISIBLE
             supportFragmentManager.popBackStack()
         }
+        viewPagerContainer.visibility = View.GONE
+        viewPager.visibility = View.VISIBLE
         // Navega para a aba Home
         viewPager.currentItem = 0
+    }
+
+    fun onGlobalLoginSuccess() {
+        Log.d(TAG, "Login global bem-sucedido. Navegando para home e notificando fragments.")
+        navigateToHome()
+        notifyLoginSuccessToFragments()
+    }
+
+    private fun notifyLoginSuccessToFragments() {
+        pagerAdapter.getAllFragments().forEach { fragment ->
+            if (fragment is LoginStateListener) {
+                Log.d(TAG, "Notificando ${fragment.javaClass.simpleName} sobre o login.")
+                fragment.onLoginSuccess()
+            }
+        }
     }
 
     inner class WatchFragmentPagerAdapter(fa: FragmentActivity) : FragmentStateAdapter(fa) {
@@ -255,7 +274,8 @@ class MainActivity : AppCompatActivity() {
         override fun getItemCount(): Int = 6
 
         override fun createFragment(position: Int): Fragment {
-            return when (position) {
+            // Retorna a instância existente ou cria uma nova
+            return fragments[position] ?: when (position) {
                 0 -> HomeFragment()
                 1 -> NotasFragment()
                 2 -> HorariosAula()
@@ -268,8 +288,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun getFragment(position: Int): Fragment? {
-            return fragments[position]
+        fun getAllFragments(): List<Fragment> {
+            return fragments.values.toList()
         }
     }
 }
