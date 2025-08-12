@@ -102,13 +102,6 @@ class HorariosAula : Fragment(), LoginStateListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val callback = object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                (activity as? MainActivity)?.navigateToHome()
-            }
-        }
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
-
         fetchHorarios()
     }
 

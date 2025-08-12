@@ -21,15 +21,6 @@ class MoreFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupClickListeners(view)
-
-        requireActivity().onBackPressedDispatcher.addCallback(
-            viewLifecycleOwner,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    (activity as? MainActivity)?.navigateToHome()
-                }
-            }
-        )
     }
 
     private fun setupClickListeners(view: View) {

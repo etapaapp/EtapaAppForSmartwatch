@@ -101,6 +101,9 @@ class MateriadeProva : Fragment() {
         try {
             val activity = activity as? MainActivity
             if (activity != null) {
+                // Reabilitar interações no CalendarioProvas
+                reabilitarInteracoesCalendario()
+
                 // Esconder o container modal
                 val modalContainer = activity.findViewById<View>(R.id.view_pager_container)
                 modalContainer?.visibility = View.GONE
@@ -117,6 +120,56 @@ class MateriadeProva : Fragment() {
             Log.e("MateriadeProva", "Erro ao voltar para calendário", e)
             // Fallback: tentar navegar para home
             (activity as? MainActivity)?.navigateToHome()
+        }
+    }
+
+    private fun reabilitarInteracoesCalendario() {
+        try {
+            val activity = activity as? MainActivity
+            if (activity != null) {
+                // Procurar o fragment CalendarioProvas no FragmentManager
+                val fragments = activity.supportFragmentManager.fragments
+                for (fragment in fragments) {
+                    if (fragment is CalendarioProvas && fragment.isAdded) {
+                        // Reabilitar interações através de uma função reflexiva
+                        val method = fragment.javaClass.getDeclaredMethod("habilitarInteracoes", Boolean::class.java)
+                        method.isAccessible = true
+                        method.invoke(fragment, true)
+
+                        // Restaurar alpha
+                        fragment.view?.alpha = 1.0f
+                        break
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MateriadeProva", "Erro ao reabilitar interações do calendário", e)
+            // Como fallback, tentamos acessar diretamente os elementos da interface
+            reabilitarElementosCalendarioFallback()
+        }
+    }
+
+    private fun reabilitarElementosCalendarioFallback() {
+        try {
+            val activity = activity as? MainActivity
+            activity?.let { mainActivity ->
+                // Procurar pelos IDs dos elementos no layout principal
+                mainActivity.findViewById<View>(R.id.spinner_mes)?.let { spinner ->
+                    spinner.isEnabled = true
+                }
+                mainActivity.findViewById<View>(R.id.btnFiltro)?.let { btnFiltro ->
+                    btnFiltro.isEnabled = true
+                }
+                mainActivity.findViewById<View>(R.id.recyclerProvas)?.let { recycler ->
+                    recycler.isEnabled = true
+                }
+
+                // Restaurar alpha da view principal se existir um container
+                val viewPagerMain = mainActivity.findViewById<View>(R.id.nav_host_fragment)
+                viewPagerMain?.alpha = 1.0f
+            }
+        } catch (e: Exception) {
+            Log.e("MateriadeProva", "Erro no fallback de reabilitação", e)
         }
     }
 
@@ -282,13 +335,15 @@ class MateriadeProva : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Esconder o container modal quando o fragment for destruído
+        // Reabilitar interações e esconder o container modal quando o fragment for destruído
         try {
+            reabilitarInteracoesCalendario()
+
             val activity = activity as? MainActivity
             val modalContainer = activity?.findViewById<View>(R.id.view_pager_container)
             modalContainer?.visibility = View.GONE
         } catch (e: Exception) {
-            Log.e("MateriadeProva", "Erro ao esconder container modal", e)
+            Log.e("MateriadeProva", "Erro ao limpar estado no onDestroy", e)
         }
     }
 

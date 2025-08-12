@@ -13,6 +13,7 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
@@ -48,9 +49,43 @@ class MainActivity : AppCompatActivity() {
         pagerAdapter = WatchFragmentPagerAdapter(this)
         viewPager.adapter = pagerAdapter
 
+        // Configurar controle centralizado do botão back
+        setupBackPressedHandling()
+
         solicitarPermissaoNotificacao()
         iniciarNotasWorker()
         iniciarUpdateWorker()
+    }
+
+    private fun setupBackPressedHandling() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val currentItem = viewPager.currentItem
+                val backStackCount = supportFragmentManager.backStackEntryCount
+
+                Log.d(TAG, "Back pressed - ViewPager item: $currentItem, backstack: $backStackCount")
+
+                when {
+                    // Se há fragments no backstack, remove o último
+                    backStackCount > 0 -> {
+                        Log.d(TAG, "Removendo fragment do backstack")
+                        viewPagerContainer.visibility = View.GONE
+                        viewPager.visibility = View.VISIBLE
+                        supportFragmentManager.popBackStack()
+                    }
+                    // Se estamos no HomeFragment (posição 0) e sem backstack, fecha o app
+                    currentItem == 0 -> {
+                        Log.d(TAG, "Estamos no Home sem backstack - fechando app")
+                        finish()
+                    }
+                    // Para qualquer outro fragment, volta para o Home
+                    else -> {
+                        Log.d(TAG, "Navegando para Home desde posição: $currentItem")
+                        navigateToHome()
+                    }
+                }
+            }
+        })
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -190,7 +225,7 @@ class MainActivity : AppCompatActivity() {
     fun openCustomFragment(fragment: Fragment) {
         Log.d(TAG, "Abrindo fragment customizado: ${fragment::class.simpleName}")
 
-        // Mostrar o container e o ViewPager
+        // Mostrar o container e esconder o ViewPager
         viewPagerContainer.visibility = View.VISIBLE
         viewPager.visibility = View.GONE
 
@@ -200,21 +235,6 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.view_pager_container, fragment)
             .addToBackStack(null)
             .commit()
-    }
-
-    override fun onBackPressed() {
-        if (supportFragmentManager.backStackEntryCount > 0) {
-            Log.d(TAG, "Voltando do fragment customizado")
-            viewPagerContainer.visibility = View.GONE
-            viewPager.visibility = View.VISIBLE
-            supportFragmentManager.popBackStack()
-        } else if (viewPager.currentItem != 0) {
-            // Se não estiver na Home, navega para a Home
-            viewPager.currentItem = 0
-        } else {
-            // Se estiver na Home, fecha o app
-            super.onBackPressed()
-        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -245,10 +265,10 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "Navegando para Home")
         // Se há fragment no backstack, remove
         if (supportFragmentManager.backStackEntryCount > 0) {
+            viewPagerContainer.visibility = View.GONE
+            viewPager.visibility = View.VISIBLE
             supportFragmentManager.popBackStack()
         }
-        viewPagerContainer.visibility = View.GONE
-        viewPager.visibility = View.VISIBLE
         // Navega para a aba Home
         viewPager.currentItem = 0
     }
@@ -290,6 +310,10 @@ class MainActivity : AppCompatActivity() {
 
         fun getAllFragments(): List<Fragment> {
             return fragments.values.toList()
+        }
+
+        fun getFragmentAtPosition(position: Int): Fragment? {
+            return fragments[position]
         }
     }
 }

@@ -102,13 +102,6 @@ class CalendarioProvas : Fragment(), LoginStateListener {
         btnFiltro.setOnClickListener {
             mostrarMenuFiltro(it)
         }
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    (activity as? MainActivity)?.navigateToHome()
-                }
-            }
-        )
     }
 
     override fun onLoginSuccess() {
@@ -328,6 +321,28 @@ class CalendarioProvas : Fragment(), LoginStateListener {
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    // Função para desabilitar/habilitar interações
+    private fun habilitarInteracoes(habilitar: Boolean) {
+        if (!isAdded) return
+
+        spinnerMes.isEnabled = habilitar
+        btnFiltro.isEnabled = habilitar
+        recyclerProvas.isEnabled = habilitar
+
+        // Opcionalmente, você pode adicionar um overlay semi-transparente
+        val alpha = if (habilitar) 1.0f else 0.5f
+        view?.alpha = alpha
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Verifica se o modal está visível e desabilita interações se necessário
+        val activity = activity as? MainActivity
+        val modalContainer = activity?.findViewById<View>(R.id.view_pager_container)
+        val modalVisivel = modalContainer?.visibility == View.VISIBLE
+        habilitarInteracoes(!modalVisivel)
+    }
+
     private fun parseAndDisplayTable(table: Element) {
         if (!isAdded) return
         val items = mutableListOf<ProvaItem>()
@@ -421,6 +436,9 @@ class CalendarioProvas : Fragment(), LoginStateListener {
 
                     val activity = parentFragment.activity as? MainActivity
                     if (activity != null) {
+                        // Desabilitar interações antes de abrir o modal
+                        habilitarInteracoes(false)
+
                         val materiadeProvaFragment = MateriadeProva.newInstance(item.link)
                         val transaction = activity.supportFragmentManager.beginTransaction()
                         val modalContainer = activity.findViewById<View>(R.id.view_pager_container)

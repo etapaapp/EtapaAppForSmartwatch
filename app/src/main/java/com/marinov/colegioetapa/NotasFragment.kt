@@ -58,13 +58,6 @@ class NotasFragment : Fragment(), LoginStateListener {
 
         cache = CacheHelper(requireContext())
         fetchNotas()
-
-        val callback = object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                (activity as? MainActivity)?.navigateToHome()
-            }
-        }
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
     }
 
     override fun onLoginSuccess() {

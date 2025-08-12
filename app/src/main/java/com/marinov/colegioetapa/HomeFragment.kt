@@ -20,6 +20,7 @@ import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.edit
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
@@ -43,14 +44,15 @@ class HomeFragment : Fragment(), LoginStateListener {
     private var topLoadingBar: View? = null
     private var recentGradesContainer: LinearLayout? = null
 
-    private var shouldBlockNavigation = false
     private var isFragmentDestroyed = false
-    private var hasBeenVisible = false
-    private var isDataLoaded = false
+    private var isDataLoaded = false // Controla se *algum* dado (cache ou novo) foi carregado
 
     private var recentGradesCache: List<NotaRecente> = emptyList()
 
     private val handler = Handler(Looper.getMainLooper())
+
+    // Callback específico para fechar o app quando estiver no HomeFragment
+    private lateinit var backPressedCallback: OnBackPressedCallback
 
     data class ProvaCalendario(val data: Calendar, val codigo: String, val conjunto: Int)
     data class Nota(val codigo: String, val conjunto: Int, val valor: String)
@@ -98,9 +100,40 @@ class HomeFragment : Fragment(), LoginStateListener {
         }
     }
 
-    override fun onAttach(context: Context) {
-        super.onAttach(context)
-        Log.d(TAG, "HomeFragment attached")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Inicializa o callback uma única vez com prioridade alta
+        backPressedCallback = object : OnBackPressedCallback(false) { // Inicia desabilitado
+            override fun handleOnBackPressed() {
+                Log.d(TAG, "Back pressed no HomeFragment - verificando se deve fechar app")
+
+                // Verifica se estamos realmente no HomeFragment e sem backstack
+                val mainActivity = activity as? MainActivity
+                val viewPager = mainActivity?.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.nav_host_fragment)
+                val currentItem = viewPager?.currentItem ?: -1
+                val backStackCount = parentFragmentManager.backStackEntryCount
+
+                Log.d(TAG, "Current item: $currentItem, backstack count: $backStackCount")
+
+                if (currentItem == 0 && backStackCount == 0) {
+                    Log.d(TAG, "Condições atendidas - fechando app")
+                    requireActivity().finish()
+                } else {
+                    Log.d(TAG, "Condições não atendidas - não fechando app")
+                    // Se não atende as condições, desabilita temporariamente e deixa outros callbacks lidarem
+                    isEnabled = false
+                    requireActivity().onBackPressedDispatcher.onBackPressed()
+                    // Reabilita após um delay
+                    Handler(Looper.getMainLooper()).postDelayed({
+                        if (!isFragmentDestroyed) isEnabled = true
+                    }, 100)
+                }
+            }
+        }
+
+        // Adiciona o callback ao dispatcher
+        requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback)
     }
 
     override fun onCreateView(
@@ -110,24 +143,43 @@ class HomeFragment : Fragment(), LoginStateListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         isFragmentDestroyed = false
-        shouldBlockNavigation = false
         initializeViews(view)
         setupListeners()
         checkInternetAndLoadData()
     }
 
-    override fun onPause() {
-        super.onPause()
-        shouldBlockNavigation = true
-    }
-
     override fun onResume() {
         super.onResume()
-        shouldBlockNavigation = false
-        if (hasBeenVisible && !isDataLoaded) {
-            checkInternetAndLoadData()
+        Log.d(TAG, "HomeFragment onResume - verificando se deve ativar callback")
+
+        // Aguarda um frame para garantir que o ViewPager terminou a transição
+        handler.post {
+            if (isFragmentDestroyed) return@post
+
+            val mainActivity = activity as? MainActivity
+            if (mainActivity != null) {
+                val viewPager = mainActivity.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.nav_host_fragment)
+                val currentItem = viewPager?.currentItem ?: -1
+                val backStackCount = parentFragmentManager.backStackEntryCount
+
+                Log.d(TAG, "onResume check - ViewPager item: $currentItem, backstack: $backStackCount")
+
+                // Só ativa o callback se estivermos na posição 0 (HomeFragment) e não há fragments no backstack
+                if (currentItem == 0 && backStackCount == 0) {
+                    backPressedCallback.isEnabled = true
+                    Log.d(TAG, "Callback de back ATIVADO")
+                } else {
+                    backPressedCallback.isEnabled = false
+                    Log.d(TAG, "Callback de back DESATIVADO")
+                }
+            }
         }
-        hasBeenVisible = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "HomeFragment onPause - desativando callback de back")
+        backPressedCallback.isEnabled = false
     }
 
     override fun onDestroyView() {
@@ -148,52 +200,53 @@ class HomeFragment : Fragment(), LoginStateListener {
 
     private fun setupListeners() {
         btnTentarNovamente?.setOnClickListener {
-            isDataLoaded = false
             checkInternetAndLoadData()
         }
     }
 
     private fun checkInternetAndLoadData() {
+        // 1. Tenta carregar e exibir o cache imediatamente para uma experiência rápida
+        if (loadCache()) {
+            Log.d(TAG, "Cache encontrado. Exibindo dados de cache.")
+            updateUiWithCurrentData()
+            showContentState()
+            isDataLoaded = true
+        }
+
+        // 2. Verifica a conexão com a internet
         if (hasInternetConnection()) {
+            // Se não havia cache, mostra o loading principal
             if (!isDataLoaded) {
-                val hasCache = loadCache()
-                if (hasCache) {
-                    showContentState()
-                    updateUiWithCurrentData()
-                    isDataLoaded = true
-                } else {
-                    showLoadingState()
-                }
+                showLoadingState()
             }
+            // Inicia a busca por novos dados em segundo plano
             fetchDataInBackground()
         } else {
-            showOfflineState()
+            // Se não tem internet e nem cache, mostra a tela de offline
+            if (!isDataLoaded) {
+                showOfflineState()
+            }
+            // Se já está mostrando o cache, o usuário pode continuar vendo os dados antigos.
         }
     }
 
     private fun fetchDataInBackground() {
-        if (contentContainer?.visibility == View.VISIBLE) {
+        // Se já estamos mostrando conteúdo (do cache), exibe a barra de carregamento superior
+        if (isDataLoaded) {
             topLoadingBar?.visibility = View.VISIBLE
-        } else {
-            showLoadingState()
         }
 
         lifecycleScope.launch {
             try {
-                Log.d(TAG, "Iniciando busca de dados...")
                 val homeDoc = withContext(Dispatchers.IO) { fetchPageDataStatic(HOME_URL) }
                 if (isFragmentDestroyed) return@launch
 
-                Log.d(TAG, "Verificando se a sessão é válida...")
                 if (isValidSessionStatic(homeDoc)) {
-                    Log.d(TAG, "Sessão válida - buscando dados completos")
                     val gradesDoc = async(Dispatchers.IO) { fetchPageDataStatic(NOTAS_URL) }
                     val calendarDocsDeferred = (1..MESES).map { mes ->
                         async(Dispatchers.IO) { fetchPageDataStatic("$CALENDARIO_URL_BASE?mes%5B%5D=$mes") }
                     }
-
-                    val calendarDocs = try { awaitAll(*calendarDocsDeferred.toTypedArray()) }
-                    catch (e: Exception) { emptyList() }
+                    val calendarDocs = try { awaitAll(*calendarDocsDeferred.toTypedArray()) } catch (e: Exception) { emptyList() }
 
                     val allExams = parseAllCalendarData(calendarDocs)
                     val allGrades = parseAllGradesData(gradesDoc.await())
@@ -204,36 +257,21 @@ class HomeFragment : Fragment(), LoginStateListener {
 
                     withContext(Dispatchers.Main) {
                         if (isFragmentDestroyed) return@withContext
-                        setupRecentGrades(recentGrades)
+                        updateUiWithCurrentData()
                         isDataLoaded = true
                         showContentState()
                     }
                 } else {
-                    Log.d(TAG, "Sessão inválida - abrindo popup de login")
-                    withContext(Dispatchers.Main) {
-                        handleInvalidSession()
-                    }
+                    withContext(Dispatchers.Main) { handleInvalidSession() }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Erro ao buscar dados", e)
-                withContext(Dispatchers.Main) {
-                    if (!isFragmentDestroyed) handleDataFetchError(e)
-                }
+                Log.e(TAG, "Erro ao buscar dados em background", e)
+                withContext(Dispatchers.Main) { if (!isFragmentDestroyed && !isDataLoaded) showOfflineState() }
             } finally {
-                withContext(Dispatchers.Main) {
-                    if (!isFragmentDestroyed) {
-                        topLoadingBar?.visibility = View.GONE
-                        if (!isDataLoaded) {
-                            showOfflineState()
-                        }
-                    }
-                }
+                withContext(Dispatchers.Main) { if (!isFragmentDestroyed) topLoadingBar?.visibility = View.GONE }
             }
         }
     }
-
-    @Throws(IOException::class)
-    private fun fetchPageData(url: String): Document? = fetchPageDataStatic(url)
 
     private fun parseAllCalendarData(docs: List<Document?>): List<ProvaCalendario> {
         val allExams = mutableListOf<ProvaCalendario>()
@@ -245,26 +283,16 @@ class HomeFragment : Fragment(), LoginStateListener {
             for (tr in rows) {
                 val cells = tr.children()
                 if (cells.size < 5) continue
-
                 try {
-                    val tipo = cells[2].text().lowercase()
-                    if (tipo.contains("rec")) continue
-
-                    val dataStr = cells[0].text().split(" ")[0]
-                    val codigo = cells[1].ownText()
+                    if (cells[2].text().lowercase().contains("rec")) continue
+                    val dataParts = cells[0].text().split(" ")[0].split("/")
                     val conjuntoStr = cells[3].text().filter { it.isDigit() }
-
-                    if (dataStr.contains('/') && conjuntoStr.isNotEmpty()) {
-                        val dataParts = dataStr.split("/")
-                        val day = dataParts[0].toInt()
-                        val month = dataParts[1].toInt() - 1
-                        val conjunto = conjuntoStr.toInt()
-
+                    if (dataParts.size == 2 && conjuntoStr.isNotEmpty()) {
                         val calendar = Calendar.getInstance().apply {
-                            set(currentYear, month, day, 0, 0, 0)
+                            set(currentYear, dataParts[1].toInt() - 1, dataParts[0].toInt(), 0, 0, 0)
                             set(Calendar.MILLISECOND, 0)
                         }
-                        allExams.add(ProvaCalendario(calendar, codigo, conjunto))
+                        allExams.add(ProvaCalendario(calendar, cells[1].ownText(), conjuntoStr.toInt()))
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Erro ao parsear linha do calendário: ${tr.text()}", e)
@@ -278,27 +306,20 @@ class HomeFragment : Fragment(), LoginStateListener {
         if (doc == null) return emptyList()
         val allGrades = mutableListOf<Nota>()
         val table = doc.selectFirst("table") ?: return emptyList()
-
         val headers = table.select("thead th")
         val conjuntoMap = mutableMapOf<Int, Int>()
         headers.forEachIndexed { index, th ->
             if (index > 1) {
-                val conjunto = th.text().filter { it.isDigit() }.toIntOrNull()
-                if (conjunto != null) conjuntoMap[index] = conjunto
+                th.text().filter { it.isDigit() }.toIntOrNull()?.let { conjuntoMap[index] = it }
             }
         }
-
-        val rows = table.select("tbody > tr")
-        for (tr in rows) {
+        table.select("tbody > tr").forEach { tr ->
             val cols = tr.children()
-            if (cols.size <= 1) continue
-            val codigo = cols[1].text()
-
-            cols.forEachIndexed { colIndex, td ->
-                conjuntoMap[colIndex]?.let { conjunto ->
-                    val nota = td.text()
-                    if (nota.isNotEmpty()) {
-                        allGrades.add(Nota(codigo, conjunto, nota))
+            if (cols.size > 1) {
+                val codigo = cols[1].text()
+                cols.forEachIndexed { colIndex, td ->
+                    conjuntoMap[colIndex]?.let { conjunto ->
+                        if (td.text().isNotEmpty()) allGrades.add(Nota(codigo, conjunto, td.text()))
                     }
                 }
             }
@@ -308,24 +329,14 @@ class HomeFragment : Fragment(), LoginStateListener {
 
     private fun findRecentGrades(allExams: List<ProvaCalendario>, allGrades: List<Nota>): List<NotaRecente> {
         if (allExams.isEmpty() || allGrades.isEmpty()) return emptyList()
-
         val gradesMap = allGrades.associateBy { "${it.codigo}-${it.conjunto}" }
         val today = Calendar.getInstance()
-
         return allExams
             .filter { it.data.before(today) || it.data == today }
             .sortedByDescending { it.data }
             .mapNotNull { exam ->
-                val key = "${exam.codigo}-${exam.conjunto}"
-                gradesMap[key]?.let { nota ->
-                    if (nota.valor != "--") {
-                        NotaRecente(
-                            exam.codigo,
-                            exam.conjunto.toString(),
-                            nota.valor,
-                            exam.data
-                        )
-                    } else null
+                gradesMap["${exam.codigo}-${exam.conjunto}"]?.let { nota ->
+                    if (nota.valor != "--") NotaRecente(exam.codigo, exam.conjunto.toString(), nota.valor, exam.data) else null
                 }
             }
             .distinctBy { "${it.codigo}-${it.conjunto}" }
@@ -340,58 +351,33 @@ class HomeFragment : Fragment(), LoginStateListener {
     private fun setupRecentGrades(grades: List<NotaRecente>) {
         if (isFragmentDestroyed || recentGradesContainer == null) return
         val context = context ?: return
-
         recentGradesContainer?.removeAllViews()
-
         if (grades.isEmpty()) {
             recentGradesContainer?.visibility = View.GONE
             return
         }
-
         recentGradesContainer?.visibility = View.VISIBLE
-
         for (grade in grades) {
-            val gradeView = LayoutInflater.from(context)
-                .inflate(R.layout.item_recent_grade_watch, recentGradesContainer, false)
-
+            val gradeView = LayoutInflater.from(context).inflate(R.layout.item_recent_grade_watch, recentGradesContainer, false)
             gradeView.findViewById<TextView>(R.id.tv_codigo).text = grade.codigo
             gradeView.findViewById<TextView>(R.id.tv_conjunto).text = "Conjunto ${grade.conjunto}"
             gradeView.findViewById<TextView>(R.id.tv_nota).text = grade.nota
-
             recentGradesContainer?.addView(gradeView)
         }
     }
 
     override fun onLoginSuccess() {
         Log.d(TAG, "Login bem-sucedido - forçando recarregamento do HomeFragment")
-        clearCache()
         isDataLoaded = false
+        clearCache()
         checkInternetAndLoadData()
     }
 
     private fun handleInvalidSession() {
-        if (isFragmentDestroyed || shouldBlockNavigation) {
-            Log.d(TAG, "Navegação bloqueada - fragment destruído ou pausado")
-            return
-        }
-
-        Log.d(TAG, "Limpando cache e abrindo login embutido")
-        clearCache()
-        isDataLoaded = false
-        showLoginPopup()
-    }
-
-    private fun handleDataFetchError(e: Exception) {
         if (isFragmentDestroyed) return
-        Log.e(TAG, "Erro ao buscar dados: ${e.message}", e)
-        if (!isDataLoaded) {
-            if (loadCache()) {
-                showContentState()
-                updateUiWithCurrentData()
-            } else {
-                showOfflineState()
-            }
-        }
+        isDataLoaded = false
+        clearCache()
+        showLoginPopup()
     }
 
     private fun saveRecentGradesCache(grades: List<NotaRecente>) {
@@ -399,8 +385,7 @@ class HomeFragment : Fragment(), LoginStateListener {
         val context = context ?: return
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit {
-            val gson = Gson()
-            putString(KEY_RECENT_GRADES, gson.toJson(grades))
+            putString(KEY_RECENT_GRADES, Gson().toJson(grades))
             putLong(KEY_CACHE_TIMESTAMP, System.currentTimeMillis())
         }
     }
@@ -414,53 +399,36 @@ class HomeFragment : Fragment(), LoginStateListener {
             clearCache()
             return false
         }
-        val gson = Gson()
         val recentGradesJson = prefs.getString(KEY_RECENT_GRADES, null)
-
         if (recentGradesJson != null) {
-            val recentGradesType = object : TypeToken<List<NotaRecente>>() {}.type
-            recentGradesCache = gson.fromJson(recentGradesJson, recentGradesType)
+            recentGradesCache = Gson().fromJson(recentGradesJson, object : TypeToken<List<NotaRecente>>() {}.type)
             return true
         }
         return false
     }
 
     private fun clearCache() {
-        context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)?.edit {
-            clear()
-            apply()
-        }
+        context?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)?.edit { clear(); apply() }
         recentGradesCache = emptyList()
     }
 
     private fun showLoginPopup() {
-        Log.d(TAG, "Solicitado showLoginPopup()")
         val fragmentManager = activity?.supportFragmentManager ?: return
-        if (fragmentManager.findFragmentByTag("login_dialog") != null) {
-            Log.d(TAG, "Login dialog já está aberto")
-            return
+        if (fragmentManager.findFragmentByTag("login_dialog") == null) {
+            LoginDialogFragment().apply { isCancelable = false }.show(fragmentManager, "login_dialog")
         }
-        val dlg = LoginDialogFragment()
-        dlg.isCancelable = false
-        dlg.show(fragmentManager, "login_dialog")
     }
 
     class LoginDialogFragment : DialogFragment() {
-
         private lateinit var webView: WebView
         private lateinit var progress: ProgressBar
-        private var fallbackShown = false
-        private var pollJob: Job? = null
-        private val handler = Handler(Looper.getMainLooper())
 
         override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-            val dlg = super.onCreateDialog(savedInstanceState)
-            dlg.setCanceledOnTouchOutside(false)
-            isCancelable = false
-            dlg.setOnKeyListener { _, keyCode, event ->
-                keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP
+            return super.onCreateDialog(savedInstanceState).apply {
+                setCanceledOnTouchOutside(false)
+                isCancelable = false
+                setOnKeyListener { _, keyCode, event -> keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP }
             }
-            return dlg
         }
 
         override fun onStart() {
@@ -470,36 +438,24 @@ class HomeFragment : Fragment(), LoginStateListener {
         }
 
         override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-            val root = FrameLayout(requireContext())
-            root.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-
-            progress = ProgressBar(requireContext()).apply {
-                isIndeterminate = true
-                val lp = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT)
-                lp.gravity = android.view.Gravity.CENTER
-                layoutParams = lp
+            return FrameLayout(requireContext()).apply {
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                webView = WebView(requireContext()).apply {
+                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    visibility = View.INVISIBLE
+                }
+                progress = ProgressBar(requireContext()).apply {
+                    layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, android.view.Gravity.CENTER)
+                }
+                addView(webView)
+                addView(progress)
+                initializeLoginWebView()
             }
-
-            webView = WebView(requireContext())
-            webView.layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            webView.visibility = View.INVISIBLE // Começa invisível
-
-            root.addView(webView)
-            root.addView(progress)
-
-            initializeLoginWebView()
-
-            return root
         }
 
         @SuppressLint("SetJavaScriptEnabled")
         private fun initializeLoginWebView() {
-            CookieManager.getInstance().apply {
-                setAcceptCookie(true)
-                setAcceptThirdPartyCookies(webView, true)
-                flush()
-            }
-
+            CookieManager.getInstance().apply { setAcceptCookie(true); setAcceptThirdPartyCookies(webView, true); flush() }
             with(webView.settings) {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -507,91 +463,42 @@ class HomeFragment : Fragment(), LoginStateListener {
                 useWideViewPort = true
                 userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
             }
-
-            val prefs = requireContext().getSharedPreferences(AUTOFILL_PREFS, Context.MODE_PRIVATE)
-            webView.addJavascriptInterface(JsInterface(prefs), "AndroidAutofill")
-
+            webView.addJavascriptInterface(JsInterface(requireContext().getSharedPreferences(AUTOFILL_PREFS, Context.MODE_PRIVATE)), "AndroidAutofill")
             webView.webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                    val url = request?.url?.toString() ?: return false
-                    if (isHomeUrl(url)) {
+                    if (request?.url?.toString()?.startsWith(HOME_URL) == true) {
                         onLoginDetected()
                         return true
                     }
                     return false
                 }
-
                 override fun onPageFinished(view: WebView, url: String) {
                     if (!isAdded) return
-                    removeHeader(view)
-                    injectAutoFillScript(view)
-                    if (isSystemDarkModeStatic(requireContext())) injectCssDarkMode(view)
-
-                    if (isHomeUrl(url)) {
-                        onLoginDetected()
-                    } else {
-                        showWebViewWithAnimation(view)
+                    injectJs(view, "var nav=document.querySelector('#page-content-wrapper > nav'); if(nav) nav.remove(); var sidebar=document.querySelector('#sidebar-wrapper'); if(sidebar) sidebar.remove();")
+                    injectJs(view, "(function(){const u=document.querySelector('#matricula'),p=document.querySelector('#senha');if(u&&p){u.value=AndroidAutofill.getSavedUser();p.value=AndroidAutofill.getSavedPassword();const h=()=>{AndroidAutofill.saveCredentials(u.value,p.value)};u.addEventListener('input',h);p.addEventListener('input',h)}})();")
+                    if (isSystemDarkModeStatic(requireContext())) injectJs(view, "var s=document.createElement('style');s.innerHTML='html{filter:invert(1) hue-rotate(180deg)!important;background:#121212!important}img,picture,video{filter:invert(1) hue-rotate(180deg)!important}';document.head.appendChild(s);")
+                    if (url.startsWith(HOME_URL)) onLoginDetected() else {
                         progress.visibility = View.GONE
-                        fallbackShown = true
+                        view.visibility = View.VISIBLE
                     }
                 }
-
-                private fun isHomeUrl(url: String?) = url?.startsWith(HOME_URL) == true
             }
             webView.loadUrl(LOGIN_URL)
         }
 
         private fun onLoginDetected() {
             if (!isAdded || isRemoving) return
-            Log.d(TAG, "Login detectado. Notificando MainActivity.")
             CookieManager.getInstance().flush()
             (activity as? MainActivity)?.onGlobalLoginSuccess()
             dismissAllowingStateLoss()
         }
 
-        private fun showWebViewWithAnimation(view: WebView) {
-            view.alpha = 0f
-            view.visibility = View.VISIBLE
-            view.animate().alpha(1f).setDuration(300).start()
-        }
-
-        private fun removeHeader(view: WebView) {
-            val js = """
-            var nav=document.querySelector('#page-content-wrapper > nav'); if(nav) nav.remove();
-            var sidebar=document.querySelector('#sidebar-wrapper'); if(sidebar) sidebar.remove();
-            var responsavelTab=document.querySelector('#responsavel-tab'); if(responsavelTab) responsavelTab.remove();
-            var alunoTab=document.querySelector('#aluno-tab'); if(alunoTab) alunoTab.remove();
-            var login=document.querySelector('#login'); if(login) login.remove();
-            var cardElement=document.querySelector('body > div.row.mx-0.pt-4 > div > div.card.mt-4.border-radius-card.border-0.shadow'); if(cardElement) cardElement.remove();
-            """.trimIndent()
-            view.evaluateJavascript(js, null)
-        }
-
-        private fun injectAutoFillScript(view: WebView) {
-            val script = """
-                (function() {
-                    const userField = document.querySelector('#matricula');
-                    const passField = document.querySelector('#senha');
-                    if (userField && passField) {
-                        userField.value = AndroidAutofill.getSavedUser();
-                        passField.value = AndroidAutofill.getSavedPassword();
-                        function handleInput() { AndroidAutofill.saveCredentials(userField.value, passField.value); }
-                        userField.addEventListener('input', handleInput);
-                        passField.addEventListener('input', handleInput);
-                    }
-                })();
-            """.trimIndent()
+        private fun injectJs(view: WebView, script: String) {
             view.evaluateJavascript(script, null)
         }
 
-        private fun injectCssDarkMode(view: WebView) {
-            val css = "html{filter:invert(1) hue-rotate(180deg)!important;background:#121212!important;}img,picture,video,iframe{filter:invert(1) hue-rotate(180deg)!important;}"
-            val js = "var s=document.createElement('style');s.innerHTML='$css';document.head.appendChild(s);"
-            view.evaluateJavascript(js, null)
-        }
-
         private inner class JsInterface(private val prefs: android.content.SharedPreferences) {
-            @JavascriptInterface fun saveCredentials(user: String, pass: String) = prefs.edit { putString("user", user); putString("password", pass) }
+            @JavascriptInterface fun saveCredentials(u: String, p: String) = prefs.edit { putString("user", u); putString("password", p) }
             @JavascriptInterface fun getSavedUser(): String = prefs.getString("user", "") ?: ""
             @JavascriptInterface fun getSavedPassword(): String = prefs.getString("password", "") ?: ""
         }
@@ -617,10 +524,10 @@ class HomeFragment : Fragment(), LoginStateListener {
         contentContainer?.visibility = View.GONE
         layoutSemInternet?.visibility = View.VISIBLE
     }
+
     private fun hasInternetConnection(): Boolean {
-        val connectivityManager = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        val cm = context?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val capabilities = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 }
