@@ -25,6 +25,8 @@ import androidx.core.content.edit
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.google.android.material.button.MaterialButton
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -462,6 +464,22 @@ class HomeFragment : Fragment(), LoginStateListener {
                 loadWithOverviewMode = true
                 useWideViewPort = true
                 userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
+
+                // Configuração de tema escuro
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                    @Suppress("DEPRECATION")
+                    WebSettingsCompat.setForceDark(
+                        this,
+                        if (isSystemDarkModeStatic(requireContext())) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                    )
+                }
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY) && isSystemDarkModeStatic(requireContext())) {
+                    @Suppress("DEPRECATION")
+                    WebSettingsCompat.setForceDarkStrategy(
+                        this,
+                        WebSettingsCompat.DARK_STRATEGY_WEB_THEME_DARKENING_ONLY
+                    )
+                }
             }
             webView.addJavascriptInterface(JsInterface(requireContext().getSharedPreferences(AUTOFILL_PREFS, Context.MODE_PRIVATE)), "AndroidAutofill")
             webView.webViewClient = object : WebViewClient() {
@@ -474,10 +492,21 @@ class HomeFragment : Fragment(), LoginStateListener {
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     if (!isAdded) return
-                    injectJs(view, "var nav=document.querySelector('#page-content-wrapper > nav'); if(nav) nav.remove(); var sidebar=document.querySelector('#sidebar-wrapper'); if(sidebar) sidebar.remove();")
+
+                    // Injetar script de remoção de elementos
+                    injectJs(view, getRemovalScript())
+
+                    // Injetar autofill
                     injectJs(view, "(function(){const u=document.querySelector('#matricula'),p=document.querySelector('#senha');if(u&&p){u.value=AndroidAutofill.getSavedUser();p.value=AndroidAutofill.getSavedPassword();const h=()=>{AndroidAutofill.saveCredentials(u.value,p.value)};u.addEventListener('input',h);p.addEventListener('input',h)}})();")
-                    if (isSystemDarkModeStatic(requireContext())) injectJs(view, "var s=document.createElement('style');s.innerHTML='html{filter:invert(1) hue-rotate(180deg)!important;background:#121212!important}img,picture,video{filter:invert(1) hue-rotate(180deg)!important}';document.head.appendChild(s);")
-                    if (url.startsWith(HOME_URL)) onLoginDetected() else {
+
+                    // Aplicar tema escuro se necessário
+                    if (isSystemDarkModeStatic(requireContext())) {
+                        injectJs(view, getDarkModeScript())
+                    }
+
+                    if (url.startsWith(HOME_URL)) {
+                        onLoginDetected()
+                    } else {
                         progress.visibility = View.GONE
                         view.visibility = View.VISIBLE
                     }
@@ -495,6 +524,58 @@ class HomeFragment : Fragment(), LoginStateListener {
 
         private fun injectJs(view: WebView, script: String) {
             view.evaluateJavascript(script, null)
+        }
+
+        private fun getRemovalScript(): String {
+            return """
+                document.documentElement.style.webkitTouchCallout='none';
+                document.documentElement.style.webkitUserSelect='none';
+                var nav=document.querySelector('#page-content-wrapper > nav'); 
+                if(nav) nav.remove(); 
+                
+                var sidebar=document.querySelector('#sidebar-wrapper'); 
+                if(sidebar) sidebar.remove(); 
+                
+                var responsavelTab=document.querySelector('#responsavel-tab'); 
+                if(responsavelTab) responsavelTab.remove(); 
+                
+                var alunoTab=document.querySelector('#aluno-tab'); 
+                if(alunoTab) alunoTab.remove(); 
+                
+                var login=document.querySelector('#login'); 
+                if(login) login.remove(); 
+                
+                var cardElement=document.querySelector('body > div.row.mx-0.pt-4 > div > div.card.mt-4.border-radius-card.border-0.shadow'); 
+                if(cardElement) cardElement.remove(); 
+                
+                var backButton = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-body.px-0.px-md-3 > div:nth-child(1) > div.card-header.bg-soft-blue.border-left-blue.text-blue.rounded > i.fas.fa-chevron-left.btn-outline-primary.py-1.px-2.rounded.mr-2');
+                if (backButton) backButton.remove(); 
+                
+                var darkHeader = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-header.bg-dark.rounded.d-flex.align-items-center.justify-content-center');
+                if (darkHeader) darkHeader.remove(); 
+                
+                var style=document.createElement('style');
+                style.type='text/css';
+                style.appendChild(document.createTextNode('::-webkit-scrollbar{display:none;}'));
+                document.head.appendChild(style);
+            """.trimIndent()
+        }
+
+        private fun getDarkModeScript(): String {
+            return """
+                var darkModeStyle = document.createElement('style');
+                darkModeStyle.type = 'text/css';
+                darkModeStyle.innerHTML = `
+                    html {
+                        filter: invert(1) hue-rotate(180deg) !important;
+                        background: #121212 !important;
+                    }
+                    img, picture, video, iframe {
+                        filter: invert(1) hue-rotate(180deg) !important;
+                    }
+                `;
+                document.head.appendChild(darkModeStyle);
+            """.trimIndent()
         }
 
         private inner class JsInterface(private val prefs: android.content.SharedPreferences) {
