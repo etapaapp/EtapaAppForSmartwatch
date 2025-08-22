@@ -57,17 +57,6 @@ class MainActivity : AppCompatActivity() {
         iniciarUpdateWorker()
     }
 
-    // NOVO: Adicionado para finalizar a activity quando o app vai para segundo plano.
-    override fun onStop() {
-        super.onStop()
-        // A verificação `isChangingConfigurations` evita que a activity seja finalizada
-        // durante eventos como a rotação da tela.
-        if (!isChangingConfigurations) {
-            Log.d(TAG, "O app está indo para segundo plano. Finalizando a MainActivity.")
-            finish()
-        }
-    }
-
     private fun setupBackPressedHandling() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
