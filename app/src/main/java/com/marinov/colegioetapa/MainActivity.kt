@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_NOTIFICATION_PERMISSION = 100
+        private const val REQUEST_STORAGE_PERMISSION = 101 // Novo: Código para permissão de armazenamento
         private const val TAG = "MainActivity"
     }
 
@@ -53,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         setupBackPressedHandling()
 
         solicitarPermissaoNotificacao()
+        solicitarPermissaoArmazenamento() // Novo: Chamada da função de permissão de armazenamento
         iniciarNotasWorker()
         iniciarUpdateWorker()
     }
@@ -188,6 +190,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Novo: Função para solicitar permissão de armazenamento
+    private fun solicitarPermissaoArmazenamento() {
+        // A permissão só é necessária para Android 10 (API 29) e inferior
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                    REQUEST_STORAGE_PERMISSION
+                )
+            }
+        }
+    }
+
     private fun iniciarNotasWorker() {
         val notasWork = PeriodicWorkRequest.Builder(
             NotasWorker::class.java,
@@ -220,6 +240,23 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        // Você pode adicionar aqui um tratamento para o resultado da permissão, se necessário
+        when (requestCode) {
+            REQUEST_STORAGE_PERMISSION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "Permissão de armazenamento concedida.")
+                } else {
+                    Log.d(TAG, "Permissão de armazenamento negada.")
+                }
+            }
+            REQUEST_NOTIFICATION_PERMISSION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "Permissão de notificação concedida.")
+                } else {
+                    Log.d(TAG, "Permissão de notificação negada.")
+                }
+            }
+        }
     }
 
     fun openCustomFragment(fragment: Fragment) {
@@ -315,5 +352,10 @@ class MainActivity : AppCompatActivity() {
         fun getFragmentAtPosition(position: Int): Fragment? {
             return fragments[position]
         }
+    }
+
+    // Interface para que os fragments possam ser notificados sobre o login
+    interface LoginStateListener {
+        fun onLoginSuccess()
     }
 }
