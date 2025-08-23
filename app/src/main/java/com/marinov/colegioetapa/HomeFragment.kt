@@ -3,7 +3,6 @@ package com.marinov.colegioetapa
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Context
-import android.content.DialogInterface
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
@@ -36,7 +35,7 @@ import org.jsoup.nodes.Document
 import java.io.IOException
 import java.util.Calendar
 
-class HomeFragment : Fragment(), LoginStateListener {
+class HomeFragment : Fragment(), MainActivity.LoginStateListener {
 
     private var layoutSemInternet: LinearLayout? = null
     private var btnTentarNovamente: MaterialButton? = null
@@ -53,7 +52,6 @@ class HomeFragment : Fragment(), LoginStateListener {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    // Callback específico para fechar o app quando estiver no HomeFragment
     private lateinit var backPressedCallback: OnBackPressedCallback
 
     data class ProvaCalendario(val data: Calendar, val codigo: String, val conjunto: Int)
@@ -104,37 +102,27 @@ class HomeFragment : Fragment(), LoginStateListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Inicializa o callback uma única vez com prioridade alta
-        backPressedCallback = object : OnBackPressedCallback(false) { // Inicia desabilitado
+        backPressedCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
                 Log.d(TAG, "Back pressed no HomeFragment - verificando se deve fechar app")
-
-                // Verifica se estamos realmente no HomeFragment e sem backstack
                 val mainActivity = activity as? MainActivity
                 val viewPager = mainActivity?.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.nav_host_fragment)
                 val currentItem = viewPager?.currentItem ?: -1
                 val backStackCount = parentFragmentManager.backStackEntryCount
-
                 Log.d(TAG, "Current item: $currentItem, backstack count: $backStackCount")
-
                 if (currentItem == 0 && backStackCount == 0) {
                     Log.d(TAG, "Condições atendidas - fechando app")
                     requireActivity().finish()
                 } else {
                     Log.d(TAG, "Condições não atendidas - não fechando app")
-                    // Se não atende as condições, desabilita temporariamente e deixa outros callbacks lidarem
                     isEnabled = false
                     requireActivity().onBackPressedDispatcher.onBackPressed()
-                    // Reabilita após um delay
                     Handler(Looper.getMainLooper()).postDelayed({
                         if (!isFragmentDestroyed) isEnabled = true
                     }, 100)
                 }
             }
         }
-
-        // Adiciona o callback ao dispatcher
         requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback)
     }
 
@@ -153,20 +141,14 @@ class HomeFragment : Fragment(), LoginStateListener {
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "HomeFragment onResume - verificando se deve ativar callback")
-
-        // Aguarda um frame para garantir que o ViewPager terminou a transição
         handler.post {
             if (isFragmentDestroyed) return@post
-
             val mainActivity = activity as? MainActivity
             if (mainActivity != null) {
                 val viewPager = mainActivity.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.nav_host_fragment)
                 val currentItem = viewPager?.currentItem ?: -1
                 val backStackCount = parentFragmentManager.backStackEntryCount
-
                 Log.d(TAG, "onResume check - ViewPager item: $currentItem, backstack: $backStackCount")
-
-                // Só ativa o callback se estivermos na posição 0 (HomeFragment) e não há fragments no backstack
                 if (currentItem == 0 && backStackCount == 0) {
                     backPressedCallback.isEnabled = true
                     Log.d(TAG, "Callback de back ATIVADO")
@@ -207,56 +189,43 @@ class HomeFragment : Fragment(), LoginStateListener {
     }
 
     private fun checkInternetAndLoadData() {
-        // 1. Tenta carregar e exibir o cache imediatamente para uma experiência rápida
         if (loadCache()) {
             Log.d(TAG, "Cache encontrado. Exibindo dados de cache.")
             updateUiWithCurrentData()
             showContentState()
             isDataLoaded = true
         }
-
-        // 2. Verifica a conexão com a internet
         if (hasInternetConnection()) {
-            // Se não havia cache, mostra o loading principal
             if (!isDataLoaded) {
                 showLoadingState()
             }
-            // Inicia a busca por novos dados em segundo plano
             fetchDataInBackground()
         } else {
-            // Se não tem internet e nem cache, mostra a tela de offline
             if (!isDataLoaded) {
                 showOfflineState()
             }
-            // Se já está mostrando o cache, o usuário pode continuar vendo os dados antigos.
         }
     }
 
     private fun fetchDataInBackground() {
-        // Se já estamos mostrando conteúdo (do cache), exibe a barra de carregamento superior
         if (isDataLoaded) {
             topLoadingBar?.visibility = View.VISIBLE
         }
-
         lifecycleScope.launch {
             try {
                 val homeDoc = withContext(Dispatchers.IO) { fetchPageDataStatic(HOME_URL) }
                 if (isFragmentDestroyed) return@launch
-
                 if (isValidSessionStatic(homeDoc)) {
                     val gradesDoc = async(Dispatchers.IO) { fetchPageDataStatic(NOTAS_URL) }
                     val calendarDocsDeferred = (1..MESES).map { mes ->
                         async(Dispatchers.IO) { fetchPageDataStatic("$CALENDARIO_URL_BASE?mes%5B%5D=$mes") }
                     }
                     val calendarDocs = try { awaitAll(*calendarDocsDeferred.toTypedArray()) } catch (e: Exception) { emptyList() }
-
                     val allExams = parseAllCalendarData(calendarDocs)
                     val allGrades = parseAllGradesData(gradesDoc.await())
                     val recentGrades = findRecentGrades(allExams, allGrades)
-
                     saveRecentGradesCache(recentGrades)
                     recentGradesCache = recentGrades
-
                     withContext(Dispatchers.Main) {
                         if (isFragmentDestroyed) return@withContext
                         updateUiWithCurrentData()
@@ -278,7 +247,6 @@ class HomeFragment : Fragment(), LoginStateListener {
     private fun parseAllCalendarData(docs: List<Document?>): List<ProvaCalendario> {
         val allExams = mutableListOf<ProvaCalendario>()
         val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-
         docs.filterNotNull().forEach { doc ->
             val table = doc.selectFirst("table") ?: return@forEach
             val rows = table.select("tbody > tr")
@@ -443,7 +411,7 @@ class HomeFragment : Fragment(), LoginStateListener {
             return FrameLayout(requireContext()).apply {
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 webView = WebView(requireContext()).apply {
-                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                    layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
                     visibility = View.INVISIBLE
                 }
                 progress = ProgressBar(requireContext()).apply {
@@ -465,7 +433,6 @@ class HomeFragment : Fragment(), LoginStateListener {
                 useWideViewPort = true
                 userAgentString = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15"
 
-                // Configuração de tema escuro
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
                     @Suppress("DEPRECATION")
                     WebSettingsCompat.setForceDark(
@@ -492,18 +459,11 @@ class HomeFragment : Fragment(), LoginStateListener {
                 }
                 override fun onPageFinished(view: WebView, url: String) {
                     if (!isAdded) return
-
-                    // Injetar script de remoção de elementos
                     injectJs(view, getRemovalScript())
-
-                    // Injetar autofill
                     injectJs(view, "(function(){const u=document.querySelector('#matricula'),p=document.querySelector('#senha');if(u&&p){u.value=AndroidAutofill.getSavedUser();p.value=AndroidAutofill.getSavedPassword();const h=()=>{AndroidAutofill.saveCredentials(u.value,p.value)};u.addEventListener('input',h);p.addEventListener('input',h)}})();")
-
-                    // Aplicar tema escuro se necessário
                     if (isSystemDarkModeStatic(requireContext())) {
                         injectJs(view, getDarkModeScript())
                     }
-
                     if (url.startsWith(HOME_URL)) {
                         onLoginDetected()
                     } else {
@@ -517,9 +477,20 @@ class HomeFragment : Fragment(), LoginStateListener {
 
         private fun onLoginDetected() {
             if (!isAdded || isRemoving) return
+            // Garante que os cookies da WebView sejam salvos no CookieManager global.
             CookieManager.getInstance().flush()
-            (activity as? MainActivity)?.onGlobalLoginSuccess()
-            dismissAllowingStateLoss()
+
+            // CORREÇÃO: Adiciona um pequeno delay ANTES de notificar o sucesso do login.
+            // Isso dá tempo para o CookieManager sincronizar o cookie de sessão,
+            // evitando uma race condition onde o HomeFragment tenta recarregar os dados
+            // antes do cookie estar disponível, o que causava o loop de login.
+            lifecycleScope.launch {
+                delay(150) // Atraso de 500ms
+                if (isAdded) { // Verifica novamente se o fragment ainda está ativo
+                    (activity as? MainActivity)?.onGlobalLoginSuccess()
+                    dismissAllowingStateLoss()
+                }
+            }
         }
 
         private fun injectJs(view: WebView, script: String) {
@@ -532,28 +503,20 @@ class HomeFragment : Fragment(), LoginStateListener {
                 document.documentElement.style.webkitUserSelect='none';
                 var nav=document.querySelector('#page-content-wrapper > nav'); 
                 if(nav) nav.remove(); 
-                
                 var sidebar=document.querySelector('#sidebar-wrapper'); 
                 if(sidebar) sidebar.remove(); 
-                
                 var responsavelTab=document.querySelector('#responsavel-tab'); 
                 if(responsavelTab) responsavelTab.remove(); 
-                
                 var alunoTab=document.querySelector('#aluno-tab'); 
                 if(alunoTab) alunoTab.remove(); 
-                
                 var login=document.querySelector('#login'); 
                 if(login) login.remove(); 
-                
                 var cardElement=document.querySelector('body > div.row.mx-0.pt-4 > div > div.card.mt-4.border-radius-card.border-0.shadow'); 
                 if(cardElement) cardElement.remove(); 
-                
                 var backButton = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-body.px-0.px-md-3 > div:nth-child(1) > div.card-header.bg-soft-blue.border-left-blue.text-blue.rounded > i.fas.fa-chevron-left.btn-outline-primary.py-1.px-2.rounded.mr-2');
                 if (backButton) backButton.remove(); 
-                
                 var darkHeader = document.querySelector('#page-content-wrapper > div.d-lg-flex > div.container-fluid.p-3 > div.card.bg-transparent.border-0 > div.card-header.bg-dark.rounded.d-flex.align-items-center.justify-content-center');
                 if (darkHeader) darkHeader.remove(); 
-                
                 var style=document.createElement('style');
                 style.type='text/css';
                 style.appendChild(document.createTextNode('::-webkit-scrollbar{display:none;}'));

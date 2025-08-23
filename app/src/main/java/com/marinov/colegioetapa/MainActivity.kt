@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_NOTIFICATION_PERMISSION = 100
-        private const val REQUEST_STORAGE_PERMISSION = 101 // Novo: Código para permissão de armazenamento
+        private const val REQUEST_STORAGE_PERMISSION = 101
         private const val TAG = "MainActivity"
     }
 
@@ -49,12 +49,13 @@ class MainActivity : AppCompatActivity() {
 
         pagerAdapter = WatchFragmentPagerAdapter(this)
         viewPager.adapter = pagerAdapter
+        viewPager.offscreenPageLimit = pagerAdapter.itemCount
 
-        // Configurar controle centralizado do botão back
+        handleIntent(intent)
+
         setupBackPressedHandling()
-
         solicitarPermissaoNotificacao()
-        solicitarPermissaoArmazenamento() // Novo: Chamada da função de permissão de armazenamento
+        solicitarPermissaoArmazenamento()
         iniciarNotasWorker()
         iniciarUpdateWorker()
     }
@@ -68,19 +69,16 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "Back pressed - ViewPager item: $currentItem, backstack: $backStackCount")
 
                 when {
-                    // Se há fragments no backstack, remove o último
                     backStackCount > 0 -> {
                         Log.d(TAG, "Removendo fragment do backstack")
                         viewPagerContainer.visibility = View.GONE
                         viewPager.visibility = View.VISIBLE
                         supportFragmentManager.popBackStack()
                     }
-                    // Se estamos no HomeFragment (posição 0) e sem backstack, fecha o app
                     currentItem == 0 -> {
                         Log.d(TAG, "Estamos no Home sem backstack - fechando app")
                         finish()
                     }
-                    // Para qualquer outro fragment, volta para o Home
                     else -> {
                         Log.d(TAG, "Navegando para Home desde posição: $currentItem")
                         navigateToHome()
@@ -99,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     private fun handleIntent(intent: Intent?) {
         val destination = intent?.getStringExtra("destination") ?: return
         Log.d(TAG, "Handling intent with destination: $destination")
+
         val position = when (destination) {
             "home" -> 0
             "notas" -> 1
@@ -190,9 +189,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Novo: Função para solicitar permissão de armazenamento
     private fun solicitarPermissaoArmazenamento() {
-        // A permissão só é necessária para Android 10 (API 29) e inferior
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
             if (ContextCompat.checkSelfPermission(
                     this,
@@ -240,7 +237,6 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        // Você pode adicionar aqui um tratamento para o resultado da permissão, se necessário
         when (requestCode) {
             REQUEST_STORAGE_PERMISSION -> {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -261,8 +257,6 @@ class MainActivity : AppCompatActivity() {
 
     fun openCustomFragment(fragment: Fragment) {
         Log.d(TAG, "Abrindo fragment customizado: ${fragment::class.simpleName}")
-
-        // Mostrar o container e esconder o ViewPager
         viewPagerContainer.visibility = View.VISIBLE
         viewPager.visibility = View.GONE
 
@@ -300,19 +294,21 @@ class MainActivity : AppCompatActivity() {
 
     fun navigateToHome() {
         Log.d(TAG, "Navegando para Home")
-        // Se há fragment no backstack, remove
         if (supportFragmentManager.backStackEntryCount > 0) {
             viewPagerContainer.visibility = View.GONE
             viewPager.visibility = View.VISIBLE
             supportFragmentManager.popBackStack()
         }
-        // Navega para a aba Home
         viewPager.currentItem = 0
     }
 
     fun onGlobalLoginSuccess() {
-        Log.d(TAG, "Login global bem-sucedido. Navegando para home e notificando fragments.")
-        navigateToHome()
+        Log.d(TAG, "Login global bem-sucedido. Notificando fragments para recarregar.")
+        // A chamada para navigateToHome() foi removida.
+        // Ela era redundante, pois o fluxo de login é sempre iniciado a partir do HomeFragment,
+        // o que significa que já estamos na tela principal. Em alguns casos, essa chamada
+        // pode causar um ciclo de recarregamento que interfere com a sincronização de
+        // cookies pós-login, levando a um loop.
         notifyLoginSuccessToFragments()
     }
 
@@ -331,7 +327,6 @@ class MainActivity : AppCompatActivity() {
         override fun getItemCount(): Int = 6
 
         override fun createFragment(position: Int): Fragment {
-            // Retorna a instância existente ou cria uma nova
             return fragments[position] ?: when (position) {
                 0 -> HomeFragment()
                 1 -> NotasFragment()
@@ -354,7 +349,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Interface para que os fragments possam ser notificados sobre o login
     interface LoginStateListener {
         fun onLoginSuccess()
     }

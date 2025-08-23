@@ -25,6 +25,7 @@ class NotasWorker(appContext: Context, workerParams: WorkerParameters) :
         private const val URL_NOTAS = "https://areaexclusiva.colegioetapa.com.br/provas/notas"
         const val PREFS = "notas_prefs"
         const val KEY_HTML = "cache_html"
+        // A chave usada para passar o destino para a MainActivity
         const val EXTRA_DESTINATION = "destination"
     }
 
@@ -107,13 +108,10 @@ class NotasWorker(appContext: Context, workerParams: WorkerParameters) :
     private fun encontrarDiferencas(novas: Set<Nota>, antigas: Set<Nota>): Set<Nota> {
         val diferencas = mutableSetOf<Nota>()
 
-        // 1. Mapear notas antigas por código para busca rápida
         val mapaAntigas = antigas.associateBy { it.codigo }
         Log.d(TAG, "Códigos no cache antigo: ${mapaAntigas.keys}")
-        // 2. Identificar linhas novas (códigos que NÃO existem no cache)
         val novasLinhas = novas.filterNot { mapaAntigas.containsKey(it.codigo) }
         Log.d(TAG, "Novos códigos detectados: ${novasLinhas.map { it.codigo }}")
-        // 3. Processar novas linhas (ignorando "--" e adicionando apenas valores válidos)
         novasLinhas.forEach { nova ->
             val filtered = Nota(
                 codigo = nova.codigo,
@@ -130,11 +128,9 @@ class NotasWorker(appContext: Context, workerParams: WorkerParameters) :
             Log.d(TAG, "Nova linha processada: ${nova.codigo}")
         }
 
-        // 4. Verificar alterações em linhas existentes (códigos presentes no cache)
         novas.forEach { nova ->
             val antiga = mapaAntigas[nova.codigo] ?: return@forEach
             Log.d(TAG, "Comparando linha: ${nova.codigo}")
-            // Comparar cada conjunto individualmente
             val mudancas = mutableListOf<Nota>()
             if (antiga.conjunto1 != nova.conjunto1 && nova.conjunto1 != "--") {
                 mudancas.add(nova.copy(conjunto2 = "", conjunto3 = "", conjunto4 = ""))
@@ -165,12 +161,16 @@ class NotasWorker(appContext: Context, workerParams: WorkerParameters) :
             }
         }.trim()
 
-        // Intent para abrir a MainActivity e direcionar para o fragmento de notas
+        // GARANTIA 1: O Intent é criado para abrir a MainActivity.
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            putExtra(EXTRA_DESTINATION, "notas")  // Destino: NotasFragment
+            // GARANTIA 2: Um "extra" é adicionado ao Intent para dizer à MainActivity
+            // qual fragmento deve ser aberto. Neste caso, "notas".
+            putExtra(EXTRA_DESTINATION, "notas")
         }
 
+        // O PendingIntent encapsula o Intent para que o sistema possa executá-lo
+        // em nome do seu app quando o usuário clicar na notificação.
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
             0,
@@ -185,7 +185,7 @@ class NotasWorker(appContext: Context, workerParams: WorkerParameters) :
             .setContentText("Clique para ver detalhes")
             .setStyle(NotificationCompat.BigTextStyle().bigText(notificationText))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(pendingIntent) // O PendingIntent é associado à notificação.
             .setAutoCancel(true)
             .build()
 
