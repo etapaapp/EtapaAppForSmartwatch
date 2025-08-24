@@ -49,7 +49,9 @@ class MainActivity : AppCompatActivity() {
 
         pagerAdapter = WatchFragmentPagerAdapter(this)
         viewPager.adapter = pagerAdapter
-        viewPager.offscreenPageLimit = pagerAdapter.itemCount
+        // Removido o offscreenPageLimit que carregava todos os fragments
+        // O ViewPager2 agora carregará apenas o fragment atual e mantém 1 adjacente por padrão
+        viewPager.offscreenPageLimit = ViewPager2.OFFSCREEN_PAGE_LIMIT_DEFAULT
 
         handleIntent(intent)
 
@@ -71,9 +73,12 @@ class MainActivity : AppCompatActivity() {
                 when {
                     backStackCount > 0 -> {
                         Log.d(TAG, "Removendo fragment do backstack")
+                        // Fazer pop do backstack PRIMEIRO
+                        supportFragmentManager.popBackStack()
+                        // Depois restaurar visibilidade das views
                         viewPagerContainer.visibility = View.GONE
                         viewPager.visibility = View.VISIBLE
-                        supportFragmentManager.popBackStack()
+                        Log.d(TAG, "Views restauradas - ViewPager visível, container modal escondido")
                     }
                     currentItem == 0 -> {
                         Log.d(TAG, "Estamos no Home sem backstack - fechando app")
@@ -257,15 +262,28 @@ class MainActivity : AppCompatActivity() {
 
     fun openCustomFragment(fragment: Fragment) {
         Log.d(TAG, "Abrindo fragment customizado: ${fragment::class.simpleName}")
+
+        // Verificar se já há um fragment no container modal
+        val currentFragment = supportFragmentManager.findFragmentById(R.id.view_pager_container)
+        if (currentFragment != null) {
+            Log.d(TAG, "Fragment existente no container: ${currentFragment::class.simpleName}")
+            // Limpar o backstack primeiro
+            supportFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+        }
+
         viewPagerContainer.visibility = View.VISIBLE
         viewPager.visibility = View.GONE
 
         supportFragmentManager.beginTransaction()
-            .setCustomAnimations(android.R.anim.fade_in, android.R.anim.fade_out,
-                android.R.anim.fade_in, android.R.anim.fade_out)
+            .setCustomAnimations(
+                android.R.anim.fade_in, android.R.anim.fade_out,
+                android.R.anim.fade_in, android.R.anim.fade_out
+            )
             .replace(R.id.view_pager_container, fragment)
             .addToBackStack(null)
             .commit()
+
+        Log.d(TAG, "Fragment adicionado ao backstack. Total de itens: ${supportFragmentManager.backStackEntryCount + 1}")
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -313,7 +331,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun notifyLoginSuccessToFragments() {
-        pagerAdapter.getAllFragments().forEach { fragment ->
+        // Notifica apenas os fragments que estão atualmente carregados
+        pagerAdapter.getLoadedFragments().forEach { fragment ->
             if (fragment is LoginStateListener) {
                 Log.d(TAG, "Notificando ${fragment.javaClass.simpleName} sobre o login.")
                 fragment.onLoginSuccess()
@@ -327,6 +346,7 @@ class MainActivity : AppCompatActivity() {
         override fun getItemCount(): Int = 6
 
         override fun createFragment(position: Int): Fragment {
+            Log.d(TAG, "Criando fragment para posição: $position")
             return fragments[position] ?: when (position) {
                 0 -> HomeFragment()
                 1 -> NotasFragment()
@@ -340,13 +360,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        fun getAllFragments(): List<Fragment> {
+        // Método para obter apenas os fragments que foram carregados
+        fun getLoadedFragments(): List<Fragment> {
             return fragments.values.toList()
         }
 
-        fun getFragmentAtPosition(position: Int): Fragment? {
-            return fragments[position]
-        }
     }
 
     interface LoginStateListener {

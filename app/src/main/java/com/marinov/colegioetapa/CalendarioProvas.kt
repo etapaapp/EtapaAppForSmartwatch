@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.util.Log
@@ -28,17 +29,16 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.progressindicator.CircularProgressIndicator
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
-import java.util.Calendar
-import java.util.Locale
 
-class CalendarioProvas : Fragment(), LoginStateListener {
+class CalendarioProvas : Fragment() {
 
     private companion object {
         const val URL_BASE = "https://areaexclusiva.colegioetapa.com.br/provas/datas"
@@ -49,9 +49,8 @@ class CalendarioProvas : Fragment(), LoginStateListener {
         const val FILTRO_TODOS = 0
         const val FILTRO_PROVAS = 1
         const val FILTRO_RECUPERACOES = 2
-        const val PREFS_WIDGET = "widget_provas_prefs"
-        const val KEY_PROVAS = "provas_data"
     }
+
     private lateinit var recyclerProvas: RecyclerView
     private lateinit var progressBar: CircularProgressIndicator
     private lateinit var barOffline: View
@@ -65,6 +64,7 @@ class CalendarioProvas : Fragment(), LoginStateListener {
     private var mesSelecionado: Int = 0
     private var filtroAtual: Int = FILTRO_TODOS
     private lateinit var prefs: SharedPreferences
+    private var fetchJob: Job? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -76,6 +76,8 @@ class CalendarioProvas : Fragment(), LoginStateListener {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (!isAdded) return
 
         recyclerProvas = view.findViewById(R.id.recyclerProvas)
         progressBar = view.findViewById(R.id.progress_circular)
@@ -104,55 +106,22 @@ class CalendarioProvas : Fragment(), LoginStateListener {
         }
     }
 
-    override fun onLoginSuccess() {
-        Log.d("CalendarioProvas", "Login detectado, recarregando calendário.")
-        carregarDadosParaMes()
+    override fun onDestroyView() {
+        super.onDestroyView()
+        fetchJob?.cancel()
     }
 
     private fun setupRecyclerView() {
-        recyclerProvas.layoutManager = LinearLayoutManager(context)
+        if (!isAdded) return
+        recyclerProvas.layoutManager = LinearLayoutManager(requireContext())
         adapter = ProvasAdapter(emptyList(), this)
         recyclerProvas.adapter = adapter
     }
 
-    private fun salvarDadosParaWidget(provas: List<ProvaItem>) {
-        val safeContext = context ?: return
-        val jsonArray = JSONArray()
-        val calendar = Calendar.getInstance()
-        val anoAtual = calendar.get(Calendar.YEAR)
-
-        provas.forEach { prova ->
-            try {
-                val dataParte = prova.data.split(" ")[0]
-                val partes = dataParte.split("/")
-
-                if (partes.size >= 2) {
-                    val dia = partes[0].toInt()
-                    val mes = partes[1].toInt()
-                    val dataCompleta = String.format(Locale.getDefault(), "%02d/%02d/%d", dia, mes, anoAtual)
-                    val tipo = if (prova.tipo.contains("REC", ignoreCase = true)) "REC" else "PROVA"
-
-                    jsonArray.put(JSONObject().apply {
-                        put("data", dataCompleta)
-                        put("codigo", prova.codigo)
-                        put("tipo", tipo)
-                    })
-                }
-            } catch (e: Exception) {
-                Log.e("CalendarioProvas", "Erro ao processar data: ${prova.data}", e)
-            }
-        }
-
-        val prefs = safeContext.getSharedPreferences(PREFS_WIDGET, Context.MODE_PRIVATE)
-        prefs.edit {
-            putString(KEY_PROVAS, jsonArray.toString())
-        }
-    }
-
     private fun configurarSpinnerMeses() {
-        val safeContext = context ?: return
+        if (!isAdded) return
         val adapter = ArrayAdapter.createFromResource(
-            safeContext,
+            requireContext(),
             R.array.meses_array,
             android.R.layout.simple_spinner_item
         ).apply {
@@ -165,13 +134,14 @@ class CalendarioProvas : Fragment(), LoginStateListener {
                 mesSelecionado = position
                 carregarDadosParaMes()
             }
+
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
 
     private fun mostrarMenuFiltro(anchor: View) {
-        val safeContext = context ?: return
-        val popup = PopupMenu(safeContext, anchor)
+        if (!isAdded) return
+        val popup = PopupMenu(requireContext(), anchor)
         popup.menuInflater.inflate(R.menu.menu_filtro_provas, popup.menu)
 
         when (filtroAtual) {
@@ -187,25 +157,30 @@ class CalendarioProvas : Fragment(), LoginStateListener {
                 R.id.filtro_recuperacoes -> FILTRO_RECUPERACOES
                 else -> return@setOnMenuItemClickListener false
             }
+
             prefs.edit { putInt(KEY_FILTRO, filtroAtual) }
             adapter.aplicarFiltro(filtroAtual)
             true
         }
+
         popup.show()
     }
 
     private fun carregarDadosParaMes() {
+        if (!isAdded) return
         if (!isOnline()) {
-            exibirBarraOffline()
+            barOffline.visibility = View.VISIBLE
+            progressBar.visibility = View.GONE
             verificarCache()
-            return
+        } else {
+            exibirCarregando()
+            val url = if (mesSelecionado == 0) URL_BASE else "$URL_BASE?mes%5B%5D=$mesSelecionado"
+            fetchProvas(url)
         }
-        exibirCarregando()
-        val url = if (mesSelecionado == 0) URL_BASE else "$URL_BASE?mes%5B%5D=$mesSelecionado"
-        fetchProvas(url)
     }
 
     private fun verificarCache() {
+        if (!isAdded) return
         when {
             cache.temProvas(mesSelecionado) -> carregarCacheProvas()
             cache.mesSemProvas(mesSelecionado) -> exibirMensagemSemProvas()
@@ -217,11 +192,11 @@ class CalendarioProvas : Fragment(), LoginStateListener {
         if (!isAdded) return
         recyclerProvas.visibility = View.GONE
         txtSemProvas.visibility = View.VISIBLE
-        barOffline.visibility = View.GONE
         txtSemDados.visibility = View.GONE
     }
 
     private fun carregarCacheProvas() {
+        if (!isAdded) return
         cache.loadHtml(mesSelecionado)?.let { html ->
             val fake = Jsoup.parse(html)
             val table = fake.selectFirst("table")
@@ -229,78 +204,92 @@ class CalendarioProvas : Fragment(), LoginStateListener {
                 parseAndDisplayTable(table)
                 exibirConteudoOnline()
             }
+        } ?: run {
+            // Se não há cache de provas, verifica se o mês está marcado como sem provas
+            if (cache.mesSemProvas(mesSelecionado)) {
+                exibirMensagemSemProvas()
+            } else {
+                exibirSemDados()
+            }
         }
     }
 
     private fun fetchProvas(url: String) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            if (!isAdded) return@launch
+        fetchJob?.cancel()
+
+        fetchJob = lifecycleScope.launch {
             try {
                 val doc = withContext(Dispatchers.IO) {
+                    ensureActive()
                     try {
                         val cookieHeader = CookieManager.getInstance().getCookie(url)
                         Jsoup.connect(url)
-                            .header("Cookie", cookieHeader ?: "")
+                            .header("Cookie", cookieHeader)
                             .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.4 Safari/605.1.15")
                             .timeout(15000)
                             .get()
                     } catch (e: Exception) {
-                        Log.e("CalendarioProvas", "Erro na conexão", e)
+                        if (e !is CancellationException) {
+                            Log.e("CalendarioProvas", "Erro na conexão", e)
+                        }
                         null
                     }
                 }
 
+                ensureActive()
                 if (!isAdded) return@launch
+
                 progressBar.visibility = View.GONE
 
-                when {
-                    doc?.selectFirst("table") != null -> {
-                        val table = doc.selectFirst("table")!!
-                        cache.salvarProvas(table.outerHtml(), mesSelecionado)
-                        parseAndDisplayTable(table)
-                        exibirConteudoOnline()
-                    }
-                    doc?.selectFirst(".alert-info") != null -> {
-                        cache.salvarMesSemProvas(mesSelecionado)
-                        exibirMensagemSemProvas()
-                    }
-                    else -> {
-                        verificarCache()
-                        exibirBarraOffline()
-                    }
+                // Verifica se há a mensagem de nenhuma prova primeiro
+                val alertInfo = doc?.selectFirst("div.alert.alert-info")
+                if (alertInfo != null && alertInfo.text().contains("Nenhuma prova a ser mostrada", ignoreCase = true)) {
+                    barOffline.visibility = View.GONE
+                    cache.salvarMesSemProvas(mesSelecionado)
+                    exibirMensagemSemProvas()
+                    return@launch
                 }
-            } catch (e: Exception) {
-                if (isAdded) {
-                    progressBar.visibility = View.GONE
+
+                // Se não há mensagem de nenhuma prova, verifica se há tabela
+                val table = doc?.selectFirst("table")
+                if (table != null) {
+                    barOffline.visibility = View.GONE
+                    cache.salvarProvas(table.outerHtml(), mesSelecionado)
+                    parseAndDisplayTable(table)
+                    exibirConteudoOnline()
+                } else {
+                    // Se não há tabela nem mensagem de nenhuma prova, exibe barra offline e verifica cache
+                    if (isOnline()) {
+                        barOffline.visibility = View.VISIBLE
+                    }
                     verificarCache()
-                    exibirBarraOffline()
                 }
-                Log.e("CalendarioProvas", "Erro ao buscar provas", e)
+            } catch (_: CancellationException) {
+                Log.d("CalendarioProvas", "Requisição cancelada")
+            } catch (e: Exception) {
+                if (!isAdded) return@launch
+                Log.e("CalendarioProvas", "Exceção no fetchProvas", e)
+                progressBar.visibility = View.GONE
+                if (isOnline()) {
+                    barOffline.visibility = View.VISIBLE
+                }
+                verificarCache()
             }
         }
     }
 
     private fun exibirCarregando() {
         if (!isAdded) return
+        barOffline.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
         recyclerProvas.visibility = View.GONE
         txtSemProvas.visibility = View.GONE
-        barOffline.visibility = View.GONE
         txtSemDados.visibility = View.GONE
     }
 
     private fun exibirConteudoOnline() {
         if (!isAdded) return
         recyclerProvas.visibility = View.VISIBLE
-        barOffline.visibility = View.GONE
-        txtSemProvas.visibility = View.GONE
-        txtSemDados.visibility = View.GONE
-    }
-
-    private fun exibirBarraOffline() {
-        if (!isAdded) return
-        barOffline.visibility = View.VISIBLE
-        progressBar.visibility = View.GONE
         txtSemProvas.visibility = View.GONE
         txtSemDados.visibility = View.GONE
     }
@@ -309,42 +298,25 @@ class CalendarioProvas : Fragment(), LoginStateListener {
         if (!isAdded) return
         recyclerProvas.visibility = View.GONE
         txtSemProvas.visibility = View.GONE
-        barOffline.visibility = View.GONE
         txtSemDados.visibility = View.VISIBLE
     }
 
     private fun isOnline(): Boolean {
-        val safeContext = context ?: return false
-        val connectivityManager = safeContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
-
-    // Função para desabilitar/habilitar interações
-    private fun habilitarInteracoes(habilitar: Boolean) {
-        if (!isAdded) return
-
-        spinnerMes.isEnabled = habilitar
-        btnFiltro.isEnabled = habilitar
-        recyclerProvas.isEnabled = habilitar
-
-        // Opcionalmente, você pode adicionar um overlay semi-transparente
-        val alpha = if (habilitar) 1.0f else 0.5f
-        view?.alpha = alpha
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Verifica se o modal está visível e desabilita interações se necessário
-        val activity = activity as? MainActivity
-        val modalContainer = activity?.findViewById<View>(R.id.view_pager_container)
-        val modalVisivel = modalContainer?.visibility == View.VISIBLE
-        habilitarInteracoes(!modalVisivel)
+        if (!isAdded) return false
+        return try {
+            val connectivityManager = requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network: Network? = connectivityManager.activeNetwork
+            val networkCapabilities = connectivityManager.getNetworkCapabilities(network)
+            return networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true &&
+                    networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun parseAndDisplayTable(table: Element) {
         if (!isAdded) return
+
         val items = mutableListOf<ProvaItem>()
         val rows = table.select("tbody > tr")
 
@@ -354,7 +326,8 @@ class CalendarioProvas : Fragment(), LoginStateListener {
 
             val data = cells[0].text()
             val codigo = cells[1].ownText()
-            val link = cells[1].selectFirst("a")?.attr("href") ?: ""
+            val linkElement = cells[1].selectFirst("a")
+            val link = linkElement?.attr("href") ?: ""
             val tipo = cells[2].text()
             val conjunto = "${cells[3].text()}° conjunto"
             val materia = cells[4].text()
@@ -366,7 +339,6 @@ class CalendarioProvas : Fragment(), LoginStateListener {
 
         adapter.setDadosOriginais(items)
         adapter.aplicarFiltro(filtroAtual)
-        salvarDadosParaWidget(items)
     }
 
     private inner class ProvasAdapter(
@@ -391,14 +363,14 @@ class CalendarioProvas : Fragment(), LoginStateListener {
             }
             notifyDataSetChanged()
 
-            if (!parentFragment.isAdded) return
-
-            if (items.isEmpty()) {
-                txtSemProvas.visibility = View.VISIBLE
-                recyclerProvas.visibility = View.GONE
-            } else {
-                txtSemProvas.visibility = View.GONE
-                recyclerProvas.visibility = View.VISIBLE
+            if (parentFragment.isAdded) {
+                if (items.isEmpty()) {
+                    txtSemProvas.visibility = View.VISIBLE
+                    recyclerProvas.visibility = View.GONE
+                } else {
+                    txtSemProvas.visibility = View.GONE
+                    recyclerProvas.visibility = View.VISIBLE
+                }
             }
         }
 
@@ -417,7 +389,9 @@ class CalendarioProvas : Fragment(), LoginStateListener {
             holder.txtMateria.text = item.materia
 
             val isRecuperacao = item.tipo.contains("1ªrec", ignoreCase = true)
-            holder.badgeTipo.text = if (isRecuperacao) "1ªREC" else "PROVA"
+            val badgeText = if (isRecuperacao) "1ªREC" else "PROVA"
+
+            holder.badgeTipo.text = badgeText
 
             if (isRecuperacao) {
                 holder.badgeContainer.setBackgroundResource(R.drawable.bg_prova_recuperacao)
@@ -428,36 +402,18 @@ class CalendarioProvas : Fragment(), LoginStateListener {
             }
 
             holder.card.setOnClickListener {
-                try {
-                    if (!parentFragment.isAdded || item.link.isEmpty()) {
-                        Log.w("CalendarioProvas", "Fragment não está adicionado ou link vazio")
-                        return@setOnClickListener
-                    }
+                if (parentFragment.isAdded) {
+                    Log.d("CalendarioProvas", "Clique na prova: ${item.codigo}")
 
-                    val activity = parentFragment.activity as? MainActivity
-                    if (activity != null) {
-                        // Desabilitar interações antes de abrir o modal
-                        habilitarInteracoes(false)
-
-                        val materiadeProvaFragment = MateriadeProva.newInstance(item.link)
-                        val transaction = activity.supportFragmentManager.beginTransaction()
-                        val modalContainer = activity.findViewById<View>(R.id.view_pager_container)
-                        modalContainer?.visibility = View.VISIBLE
-
-                        transaction.replace(R.id.view_pager_container, materiadeProvaFragment)
-                        transaction.addToBackStack("materia_prova")
-
-                        if (!activity.isFinishing && !activity.supportFragmentManager.isStateSaved) {
-                            transaction.commit()
-                        } else {
-                            transaction.commitAllowingStateLoss()
-                        }
+                    // Usar o método openCustomFragment da MainActivity em vez de transaction direto
+                    val mainActivity = parentFragment.activity as? MainActivity
+                    if (mainActivity != null) {
+                        val materiaFragment = MateriadeProva.newInstance(item.link)
+                        Log.d("CalendarioProvas", "Abrindo MateriadeProva para link: ${item.link}")
+                        mainActivity.openCustomFragment(materiaFragment)
                     } else {
                         Log.e("CalendarioProvas", "MainActivity não encontrada")
                     }
-
-                } catch (e: Exception) {
-                    Log.e("CalendarioProvas", "Erro ao navegar para MateriadeProva", e)
                 }
             }
         }
@@ -501,8 +457,16 @@ class CalendarioProvas : Fragment(), LoginStateListener {
             }
         }
 
-        fun loadHtml(mes: Int): String? = prefs.getString("$KEY_BASE$mes", null)
-        fun temProvas(mes: Int): Boolean = prefs.contains("$KEY_BASE$mes")
-        fun mesSemProvas(mes: Int): Boolean = prefs.getBoolean("$KEY_SEM_PROVAS$mes", false)
+        fun loadHtml(mes: Int): String? {
+            return prefs.getString("$KEY_BASE$mes", null)
+        }
+
+        fun temProvas(mes: Int): Boolean {
+            return prefs.contains("$KEY_BASE$mes")
+        }
+
+        fun mesSemProvas(mes: Int): Boolean {
+            return prefs.getBoolean("$KEY_SEM_PROVAS$mes", false)
+        }
     }
 }
