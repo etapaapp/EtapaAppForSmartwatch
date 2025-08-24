@@ -13,7 +13,6 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.widget.ProgressBar
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -27,19 +26,22 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
 class SettingsFragment : Fragment() {
     private val tag = "SettingsFragment"
     private var progressBar: ProgressBar? = null
+    private var receivedUpdateUrl: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        arguments?.let {
+            receivedUpdateUrl = it.getString(UpdateCheckWorker.EXTRA_UPDATE_URL)
+        }
         return inflater.inflate(R.layout.fragment_settings, container, false)
     }
 
@@ -47,6 +49,21 @@ class SettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupClickListeners(view)
+        checkIntentForUpdate()
+    }
+
+    private fun checkIntentForUpdate() {
+        activity?.intent?.let { intent ->
+            if (intent.getBooleanExtra("open_update_directly", false)) {
+                val updateUrl = intent.getStringExtra(UpdateCheckWorker.EXTRA_UPDATE_URL)
+                updateUrl?.let {
+                    promptForUpdate(it)
+                } ?: checkUpdate()
+            }
+        }
+        receivedUpdateUrl?.let {
+            promptForUpdate(it)
+        }
     }
 
     private fun setupClickListeners(view: View) {
@@ -284,8 +301,6 @@ class SettingsFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // ALTERAÇÃO: Não é mais necessário cancelar a corrotina manualmente.
-        // O viewLifecycleOwner.lifecycleScope faz isso automaticamente.
         progressBar = null
     }
 }

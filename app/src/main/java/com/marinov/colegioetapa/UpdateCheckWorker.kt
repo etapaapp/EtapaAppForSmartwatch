@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -19,14 +18,14 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
     companion object {
         private const val CHANNEL_ID = "update_channel"
         private const val NOTIFICATION_ID = 1001
+        const val EXTRA_UPDATE_URL = "update_url"
     }
 
-    @RequiresApi(Build.VERSION_CODES.N)
     override suspend fun doWork(): Result {
         UpdateChecker.checkForUpdate(applicationContext, object : UpdateChecker.UpdateListener {
             @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
             override fun onUpdateAvailable(url: String) {
-                showNotification()
+                showNotification(url)
             }
 
             override fun onUpToDate() {
@@ -41,21 +40,17 @@ class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineW
     }
 
     @RequiresPermission(Manifest.permission.POST_NOTIFICATIONS)
-    private fun showNotification() {
+    private fun showNotification(updateUrl: String) {
         createNotificationChannel()
 
-        val intent = Intent(applicationContext, SettingsFragment::class.java).apply {
+        val intent = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                putExtra("open_update_directly", true)
-            }
+            putExtra("open_update_directly", true)
+            putExtra(EXTRA_UPDATE_URL, updateUrl)
         }
 
-        val pendingIntentFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        val pendingIntentFlags =
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        } else {
-            PendingIntent.FLAG_UPDATE_CURRENT
-        }
 
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,

@@ -100,7 +100,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        val destination = intent?.getStringExtra("destination") ?: return
+        if (intent == null) return
+
+        // Verificar se é uma notificação de atualização
+        if (intent.getBooleanExtra("open_update_directly", false)) {
+            val updateUrl = intent.getStringExtra(UpdateCheckWorker.EXTRA_UPDATE_URL)
+
+            // Navegar para o SettingsFragment (posição 5) com os extras
+            viewPager.currentItem = 5
+
+            // Passar a URL de atualização para o SettingsFragment
+            val settingsFragment = pagerAdapter.getFragmentAtPosition(5) as? SettingsFragment
+            settingsFragment?.arguments = Bundle().apply {
+                putString(UpdateCheckWorker.EXTRA_UPDATE_URL, updateUrl)
+            }
+            return
+        }
+
+        val destination = intent.getStringExtra("destination") ?: return
         Log.d(TAG, "Handling intent with destination: $destination")
 
         val position = when (destination) {
@@ -363,6 +380,11 @@ class MainActivity : AppCompatActivity() {
         // Método para obter apenas os fragments que foram carregados
         fun getLoadedFragments(): List<Fragment> {
             return fragments.values.toList()
+        }
+
+        // Método para obter um fragment em uma posição específica
+        fun getFragmentAtPosition(position: Int): Fragment? {
+            return fragments[position]
         }
 
     }
